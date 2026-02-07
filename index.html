@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EISEN - Eisenhower Matrix Todo</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Work+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Header Control Panel -->
+    <header class="control-panel">
+        <div class="brand-section">
+            <h1 class="logo">EISEN</h1>
+            <p class="tagline">Priority Matrix System</p>
+        </div>
+        
+        <div class="action-cluster">
+            <button class="ctrl-btn" id="themeToggleBtn" aria-label="Toggle theme">
+                <span class="icon-theme">◐</span>
+            </button>
+            <button class="ctrl-btn" id="showArchiveBtn">
+                <span>ARCHIVE</span>
+            </button>
+            <button class="ctrl-btn primary-btn" id="createTaskBtn">
+                <span>+ NEW TASK</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Tag Filter Bar -->
+    <div class="filter-strip" id="filterStrip">
+        <div class="filter-label">FILTER:</div>
+        <div class="tag-filter-container" id="tagFilterContainer">
+            <button class="tag-filter active" data-filter="all">ALL</button>
+        </div>
+    </div>
+
+    <!-- Main Matrix Grid -->
+    <main class="matrix-container" id="mainMatrix">
+        <div class="matrix-grid">
+            <!-- Quadrant 1: Urgent + Important -->
+            <section class="quadrant q-urgent-important" data-quadrant="urgent-important">
+                <div class="quadrant-header">
+                    <span class="quadrant-icon">🔥</span>
+                    <h2>DO FIRST</h2>
+                    <p class="quadrant-subtitle">Urgent + Important</p>
+                </div>
+                <div class="task-zone" data-zone="urgent-important"></div>
+            </section>
+
+            <!-- Quadrant 2: Not Urgent + Important -->
+            <section class="quadrant q-not-urgent-important" data-quadrant="not-urgent-important">
+                <div class="quadrant-header">
+                    <span class="quadrant-icon">📅</span>
+                    <h2>SCHEDULE</h2>
+                    <p class="quadrant-subtitle">Not Urgent + Important</p>
+                </div>
+                <div class="task-zone" data-zone="not-urgent-important"></div>
+            </section>
+
+            <!-- Quadrant 3: Urgent + Not Important -->
+            <section class="quadrant q-urgent-not-important" data-quadrant="urgent-not-important">
+                <div class="quadrant-header">
+                    <span class="quadrant-icon">👥</span>
+                    <h2>DELEGATE</h2>
+                    <p class="quadrant-subtitle">Urgent + Not Important</p>
+                </div>
+                <div class="task-zone" data-zone="urgent-not-important"></div>
+            </section>
+
+            <!-- Quadrant 4: Not Urgent + Not Important -->
+            <section class="quadrant q-not-urgent-not-important" data-quadrant="not-urgent-not-important">
+                <div class="quadrant-header">
+                    <span class="quadrant-icon">🗑️</span>
+                    <h2>ELIMINATE</h2>
+                    <p class="quadrant-subtitle">Not Urgent + Not Important</p>
+                </div>
+                <div class="task-zone" data-zone="not-urgent-not-important"></div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Archive View (Hidden by default) -->
+    <div class="archive-view hidden" id="archiveView">
+        <div class="archive-header">
+            <div>
+                <h2>COMPLETED ARCHIVE</h2>
+                <p class="archive-subtitle">All finished tasks</p>
+            </div>
+            <button class="ctrl-btn" id="closeArchiveBtn">
+                <span>← BACK</span>
+            </button>
+        </div>
+        <div class="archive-list" id="archiveList"></div>
+    </div>
+
+    <!-- Task Creation/Edit Modal -->
+    <div class="modal-overlay hidden" id="taskModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">CREATE NEW TASK</h2>
+                <button class="close-modal" id="closeModalBtn">✕</button>
+            </div>
+            
+            <form id="taskForm">
+                <div class="form-group">
+                    <label for="taskText">Task Description</label>
+                    <textarea id="taskText" rows="3" required placeholder="What needs to be done?"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="taskQuadrant">Quadrant</label>
+                    <select id="taskQuadrant" required>
+                        <option value="urgent-important">🔥 DO FIRST (Urgent + Important)</option>
+                        <option value="not-urgent-important">📅 SCHEDULE (Not Urgent + Important)</option>
+                        <option value="urgent-not-important">👥 DELEGATE (Urgent + Not Important)</option>
+                        <option value="not-urgent-not-important">🗑️ ELIMINATE (Not Urgent + Not Important)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="taskTags">Tags (comma-separated)</label>
+                    <input type="text" id="taskTags" placeholder="work, urgent, meeting">
+                </div>
+
+                <div class="form-group">
+                    <label for="taskLinks">Links (comma-separated URLs)</label>
+                    <input type="text" id="taskLinks" placeholder="https://example.com, https://docs.com">
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-cancel" id="cancelTaskBtn">CANCEL</button>
+                    <button type="submit" class="btn-submit">SAVE TASK</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
