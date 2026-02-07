@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Archive — Priority Matrix</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="application-shell">
+        <header class="masthead">
+            <div class="masthead-content">
+                <h1 class="site-title">Completed Tasks</h1>
+                <p class="site-tagline">View your finished work</p>
+            </div>
+            <div class="masthead-controls">
+                <button class="control-btn" id="themeToggleBtn" aria-label="Toggle theme">
+                    <svg class="icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <line x1="12" y1="1" x2="12" y2="3"/>
+                        <line x1="12" y1="21" x2="12" y2="23"/>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                        <line x1="1" y1="12" x2="3" y2="12"/>
+                        <line x1="21" y1="12" x2="23" y2="12"/>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                    </svg>
+                    <svg class="icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+                <a href="index.html" class="control-btn" aria-label="Back to matrix">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="19" y1="12" x2="5" y2="12"/>
+                        <polyline points="12 19 5 12 12 5"/>
+                    </svg>
+                </a>
+            </div>
+        </header>
+
+        <div class="toolbar">
+            <div class="archive-stats" id="archiveStats">
+                <span class="stat-item">Total: <strong id="totalCount">0</strong></span>
+            </div>
+            
+            <div class="filter-controls">
+                <label class="filter-label">Filter by label:</label>
+                <div id="labelFilterContainer" class="label-filter-chips">
+                    <button class="filter-chip active" data-label="all">All</button>
+                </div>
+            </div>
+        </div>
+
+        <main class="archive-container">
+            <div class="archive-grid" id="archivedTasksList">
+                <!-- Archived tasks will be rendered here -->
+            </div>
+            
+            <div class="empty-archive" id="emptyArchiveMessage">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+                <h2>No completed tasks yet</h2>
+                <p>Tasks marked as done will appear here</p>
+                <a href="index.html" class="btn btn-primary">Go to Matrix</a>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
