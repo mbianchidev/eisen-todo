@@ -37,6 +37,7 @@ class EisenMatrixController {
         this.attachEventHandlers();
         this.loadApplicationTheme();
         this.loadDrafts();
+        this.applyURLParams();
         this.renderApplicationState();
         this.showTourIfFirstVisit();
     }
@@ -149,6 +150,7 @@ class EisenMatrixController {
         this.elements.searchInput.addEventListener('input', () => {
             this.searchQuery = this.elements.searchInput.value.trim().toLowerCase();
             this.renderMatrixTasks();
+            this.updateURLParams();
         });
 
         // Collapse/Expand all
@@ -183,13 +185,18 @@ class EisenMatrixController {
         this.elements.backlogSearchInput.addEventListener('input', () => {
             this.backlogSearchQuery = this.elements.backlogSearchInput.value.trim().toLowerCase();
             this.renderBacklogList();
+            this.updateURLParams();
         });
 
         // Archive search
         this.elements.archiveSearchInput.addEventListener('input', () => {
             this.archiveSearchQuery = this.elements.archiveSearchInput.value.trim().toLowerCase();
             this.populateArchiveDisplay();
+            this.updateURLParams();
         });
+
+        // Browser back/forward navigation
+        window.addEventListener('popstate', () => this.applyURLParams(true));
 
         // Backlog sort buttons
         this.elements.backlogFifoBtn.addEventListener('click', () => this.setBacklogSort('fifo'));
@@ -713,11 +720,13 @@ class EisenMatrixController {
             this.activeFilters.add(tag);
         }
         this.renderApplicationState();
+        this.updateURLParams();
     }
 
     clearTagFilters() {
         this.activeFilters.clear();
         this.renderApplicationState();
+        this.updateURLParams();
     }
 
     // --- Data & storage ---
@@ -992,12 +1001,14 @@ class EisenMatrixController {
         this.elements.archiveView.classList.remove('hidden');
         document.getElementById('filterStrip').classList.add('hidden');
         this.populateArchiveDisplay();
+        this.updateURLParams();
     }
 
     hideArchiveView() {
         this.elements.archiveView.classList.add('hidden');
         this.elements.mainMatrix.classList.remove('hidden');
         document.getElementById('filterStrip').classList.remove('hidden');
+        this.updateURLParams();
     }
 
     // --- Navigation ---
@@ -1009,6 +1020,7 @@ class EisenMatrixController {
         this.elements.mainMatrix.classList.remove('hidden');
         document.getElementById('filterStrip').classList.remove('hidden');
         this.renderApplicationState();
+        this.updateURLParams();
     }
 
     // --- Onboarding Tour ---
@@ -1033,6 +1045,7 @@ class EisenMatrixController {
         this.elements.profileView.classList.remove('hidden');
         document.getElementById('filterStrip').classList.add('hidden');
         this.updateThemeSelectorUI();
+        this.updateURLParams();
     }
 
     hideProfileView() {
@@ -1040,6 +1053,7 @@ class EisenMatrixController {
         this.elements.mainMatrix.classList.remove('hidden');
         document.getElementById('filterStrip').classList.remove('hidden');
         this.renderApplicationState();
+        this.updateURLParams();
     }
 
     exportAllData() {
@@ -1309,6 +1323,7 @@ class EisenMatrixController {
         this.elements.backlogView.classList.remove('hidden');
         document.getElementById('filterStrip').classList.add('hidden');
         this.renderBacklogList();
+        this.updateURLParams();
     }
 
     hideBacklogView() {
@@ -1316,6 +1331,7 @@ class EisenMatrixController {
         this.elements.mainMatrix.classList.remove('hidden');
         document.getElementById('filterStrip').classList.remove('hidden');
         this.renderApplicationState();
+        this.updateURLParams();
     }
 
     setBacklogSort(order) {
@@ -1624,11 +1640,10 @@ class EisenMatrixController {
                     }
                 }
                 this.renderBacklogList();
+                this.updateURLParams();
             });
         });
-    }
-
-    updateTagFilterDisplay() {
+    }    updateTagFilterDisplay() {
         const dataStore = this.retrieveStoredData();
         const allLabels = new Set();
         
@@ -1662,6 +1677,7 @@ class EisenMatrixController {
                         this.activeFilters.add('__no_tags__');
                     }
                     this.renderApplicationState();
+                    this.updateURLParams();
                 } else {
                     // Clear no-tags if selecting a specific tag
                     this.activeFilters.delete('__no_tags__');
@@ -1669,6 +1685,90 @@ class EisenMatrixController {
                 }
             });
         });
+    }
+
+    // --- URL params (bookmarkable state) ---
+
+    getCurrentView() {
+        if (!this.elements.archiveView.classList.contains('hidden')) return 'archive';
+        if (!this.elements.backlogView.classList.contains('hidden')) return 'backlog';
+        if (!this.elements.profileView.classList.contains('hidden')) return 'settings';
+        return 'matrix';
+    }
+
+    updateURLParams() {
+        const params = new URLSearchParams();
+        const view = this.getCurrentView();
+        if (view !== 'matrix') params.set('view', view);
+
+        if (view === 'matrix') {
+            if (this.searchQuery) params.set('search', this.searchQuery);
+            if (this.activeFilters.size > 0) params.set('tags', Array.from(this.activeFilters).join(','));
+        } else if (view === 'backlog') {
+            if (this.backlogSearchQuery) params.set('search', this.backlogSearchQuery);
+            if (this.backlogActiveFilters.size > 0) params.set('tags', Array.from(this.backlogActiveFilters).join(','));
+        } else if (view === 'archive') {
+            if (this.archiveSearchQuery) params.set('search', this.archiveSearchQuery);
+            if (this.archiveActiveFilters.size > 0) params.set('tags', Array.from(this.archiveActiveFilters).join(','));
+        }
+
+        const qs = params.toString();
+        const newURL = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+        if (newURL !== `${window.location.pathname}${window.location.search}`) {
+            history.pushState(null, '', newURL);
+        }
+    }
+
+    applyURLParams(isPopstate) {
+        const params = new URLSearchParams(window.location.search);
+        const view = params.get('view') || 'matrix';
+        const search = params.get('search') || '';
+        const tags = params.get('tags');
+        const tagSet = tags ? new Set(tags.split(',')) : new Set();
+
+        // Reset all view-specific search/filter state
+        this.searchQuery = '';
+        this.activeFilters.clear();
+        this.backlogSearchQuery = '';
+        this.backlogActiveFilters.clear();
+        this.archiveSearchQuery = '';
+        this.archiveActiveFilters.clear();
+
+        // Show the correct view
+        this.elements.mainMatrix.classList.add('hidden');
+        this.elements.archiveView.classList.add('hidden');
+        this.elements.backlogView.classList.add('hidden');
+        this.elements.profileView.classList.add('hidden');
+
+        if (view === 'archive') {
+            this.elements.archiveView.classList.remove('hidden');
+            document.getElementById('filterStrip').classList.add('hidden');
+            this.archiveSearchQuery = search;
+            this.archiveActiveFilters = tagSet;
+            this.elements.archiveSearchInput.value = search;
+            this.populateArchiveDisplay();
+        } else if (view === 'backlog') {
+            this.elements.backlogView.classList.remove('hidden');
+            document.getElementById('filterStrip').classList.add('hidden');
+            this.backlogSearchQuery = search;
+            this.backlogActiveFilters = tagSet;
+            this.elements.backlogSearchInput.value = search;
+            this.renderBacklogList();
+        } else if (view === 'settings') {
+            this.elements.profileView.classList.remove('hidden');
+            document.getElementById('filterStrip').classList.add('hidden');
+            this.updateThemeSelectorUI();
+        } else {
+            this.elements.mainMatrix.classList.remove('hidden');
+            document.getElementById('filterStrip').classList.remove('hidden');
+            this.searchQuery = search;
+            this.activeFilters = tagSet;
+            this.elements.searchInput.value = search;
+        }
+
+        if (isPopstate) {
+            this.renderApplicationState();
+        }
     }
 
     renderApplicationState() {
@@ -1977,8 +2077,8 @@ class EisenMatrixController {
                     }
                 }
                 this.populateArchiveDisplay();
-            });
-        });
+                this.updateURLParams();
+            });        });
     }
 
     generateArchivedTaskHTML(task) {
