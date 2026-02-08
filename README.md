@@ -1,6 +1,6 @@
 # EISEN - Eisenhower Matrix Todo App
 
-A bold, Neo-Brutalist todo application built on the Eisenhower Matrix productivity framework. Organize your tasks by urgency and importance with a distinctive, memorable design.
+Stop trying to figure out what the fuck you need to do. Own your time.
 
 ![EISEN Todo App](https://github.com/user-attachments/assets/8d5d16a0-26fe-40b2-b369-94bb616b16ed)
 
