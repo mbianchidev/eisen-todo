@@ -148,6 +148,39 @@ body {
     gap: 1rem;
     align-items: center;
     overflow-x: auto;
+    flex-wrap: wrap;
+}
+
+.search-bar {
+    display: flex;
+    align-items: center;
+}
+
+.search-input {
+    font-family: 'Work Sans', sans-serif;
+    font-size: 0.875rem;
+    padding: 0.5rem 0.875rem;
+    border: var(--border-thin);
+    background: var(--primary-bg);
+    color: var(--text-primary);
+    min-width: 180px;
+    transition: all 0.15s ease;
+}
+
+.search-input::placeholder {
+    color: var(--text-secondary);
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--accent-electric);
+    box-shadow: var(--shadow-brutal-xs);
+}
+
+.collapse-all-btn {
+    font-size: 0.75rem !important;
+    padding: 0.5rem 0.875rem !important;
+    white-space: nowrap;
 }
 
 .filter-label {
@@ -294,6 +327,26 @@ body {
     flex-direction: column;
     gap: 1rem;
     flex: 1;
+    max-height: 400px;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+}
+
+.task-zone::-webkit-scrollbar {
+    width: 6px;
+}
+
+.task-zone::-webkit-scrollbar-track {
+    background: var(--secondary-bg);
+}
+
+.task-zone::-webkit-scrollbar-thumb {
+    background: var(--text-secondary);
+    border: 1px solid var(--text-primary);
+}
+
+.task-zone::-webkit-scrollbar-thumb:hover {
+    background: var(--text-primary);
 }
 
 /* === TASK CARDS === */
@@ -332,6 +385,51 @@ body {
     justify-content: space-between;
     align-items: flex-start;
     margin-bottom: 1rem;
+}
+
+.task-header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.task-collapse-btn {
+    font-size: 0.875rem;
+    background: none;
+    border: 2px solid var(--text-primary);
+    cursor: pointer;
+    padding: 0.125rem 0.375rem;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    line-height: 1;
+    transition: all 0.15s ease;
+    color: var(--text-primary);
+    background: var(--secondary-bg);
+}
+
+.task-collapse-btn:hover {
+    background: var(--text-primary);
+    color: var(--primary-bg);
+}
+
+.task-card.collapsed .task-body {
+    display: none;
+}
+
+.task-card.collapsed .task-text {
+    display: none;
+}
+
+.task-card.collapsed .task-tags {
+    display: none;
+}
+
+.task-card.collapsed .task-links {
+    display: none;
+}
+
+.task-card.collapsed .task-controls {
+    display: none;
 }
 
 .task-status-badge {
@@ -375,10 +473,12 @@ body {
     cursor: pointer;
     padding: 0.25rem;
     transition: transform 0.1s ease;
+    color: var(--text-primary);
 }
 
 .task-action-btn:hover {
     transform: scale(1.2);
+    color: var(--accent-hot);
 }
 
 .task-text {
@@ -424,6 +524,14 @@ body {
     border: 2px solid var(--text-primary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.task-tag:hover {
+    background: var(--accent-electric);
+    border-color: var(--accent-electric);
+    color: #FFFFFF;
 }
 
 .task-links {
@@ -858,6 +966,132 @@ body {
 
 .quick-add-input:focus {
     outline: none;
+    border-color: var(--accent-electric);
+    box-shadow: var(--shadow-brutal-xs);
+}
+
+/* === DELETE CONFIRM DIALOG === */
+.delete-confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 2rem;
+    animation: fadeIn 0.2s ease;
+}
+
+.delete-confirm-overlay.hidden {
+    display: none;
+}
+
+.delete-confirm-dialog {
+    background: var(--primary-bg);
+    border: var(--border-thick);
+    box-shadow: var(--shadow-brutal-lg);
+    max-width: 420px;
+    width: 100%;
+    animation: slideUp 0.3s ease;
+}
+
+.delete-confirm-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: var(--border-medium);
+    background: var(--accent-hot);
+    color: #FFFFFF;
+}
+
+.delete-confirm-header h3 {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.125rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+.delete-confirm-body {
+    padding: 1.5rem;
+}
+
+.delete-confirm-body p {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-bottom: 1.25rem;
+}
+
+.delete-confirm-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+}
+
+.delete-confirm-actions button {
+    font-family: 'Work Sans', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.75rem 1rem;
+    border: var(--border-thin);
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.15s ease;
+    width: 100%;
+}
+
+.delete-confirm-actions button:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: var(--shadow-brutal-xs);
+}
+
+.btn-confirm-delete {
+    background: var(--accent-hot);
+    color: #FFFFFF;
+    border-color: var(--accent-hot) !important;
+}
+
+.btn-confirm-cancel {
+    background: var(--secondary-bg);
+    color: var(--text-primary);
+}
+
+.btn-confirm-archive {
+    background: var(--accent-acid);
+    color: #000000;
+    border-color: var(--accent-acid) !important;
+}
+
+/* === DROP INDICATOR FOR REORDER === */
+.drop-indicator {
+    height: 4px;
+    background: var(--accent-electric);
+    border-radius: 2px;
+    margin: -0.5rem 0;
+    animation: pulse 0.8s ease infinite alternate;
+    pointer-events: none;
+}
+
+@keyframes pulse {
+    from { opacity: 0.5; }
+    to { opacity: 1; }
+}
+
+/* === COLLAPSED CARD SUMMARY === */
+.collapsed-summary {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-left: 0.5rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+/* === MULTI-TAG ACTIVE FILTER BADGES === */
+.tag-filter.active-multi {
+    background: var(--accent-electric);
+    color: #FFFFFF;
     border-color: var(--accent-electric);
     box-shadow: var(--shadow-brutal-xs);
 }

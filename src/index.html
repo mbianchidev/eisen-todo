@@ -30,8 +30,14 @@
         </div>
     </header>
 
-    <!-- Tag Filter Bar -->
+    <!-- Search & Filter Bar -->
     <div class="filter-strip" id="filterStrip">
+        <div class="search-bar">
+            <input type="text" class="search-input" id="searchInput" placeholder="Search tasks..." />
+        </div>
+        <button class="ctrl-btn collapse-all-btn" id="collapseAllBtn" title="Collapse/Expand all tasks">
+            <span id="collapseAllIcon">▾</span> COLLAPSE
+        </button>
         <div class="filter-label">FILTER:</div>
         <div class="tag-filter-container" id="tagFilterContainer">
             <button class="tag-filter active" data-filter="all">ALL</button>
@@ -169,6 +175,23 @@
                     <button type="submit" class="btn-submit">SAVE TASK</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Dialog -->
+    <div class="delete-confirm-overlay hidden" id="deleteConfirmOverlay">
+        <div class="delete-confirm-dialog">
+            <div class="delete-confirm-header">
+                <h3>DELETE TASK</h3>
+            </div>
+            <div class="delete-confirm-body">
+                <p>Are you sure you want to delete this task?</p>
+                <div class="delete-confirm-actions">
+                    <button class="btn-confirm-delete" id="confirmDeleteBtn">YES, DELETE</button>
+                    <button class="btn-confirm-archive" id="confirmArchiveBtn">NO, ARCHIVE</button>
+                    <button class="btn-confirm-cancel" id="confirmCancelBtn">NO, CANCEL</button>
+                </div>
+            </div>
         </div>
     </div>
 
