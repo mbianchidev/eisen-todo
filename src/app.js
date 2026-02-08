@@ -3,7 +3,9 @@
 class EisenMatrixController {
     constructor() {
         this.storageKey = 'eisen_matrix_data_v1';
+        this.themePreference = 'light'; // 'light', 'dark', or 'system'
         this.currentTheme = 'light';
+        this.systemDarkMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
         this.activeFilters = new Set(); // multi-tag filter (empty = show all)
         this.editingTaskId = null;
         this.directQuadrant = null; // set when creating from a quadrant's + button
@@ -107,6 +109,14 @@ class EisenMatrixController {
 
     attachEventHandlers() {
         this.elements.themeBtn.addEventListener('click', () => this.toggleApplicationTheme());
+
+        // Theme selector in settings
+        document.getElementById('themeSelector').addEventListener('click', (e) => {
+            const btn = e.target.closest('.theme-option');
+            if (btn && btn.dataset.theme) {
+                this.setThemePreference(btn.dataset.theme);
+            }
+        });
         this.elements.logoLink.addEventListener('click', (evt) => {
             evt.preventDefault();
             this.navigateHome();
@@ -723,22 +733,62 @@ class EisenMatrixController {
     }
 
     loadApplicationTheme() {
-        const savedTheme = localStorage.getItem('eisen_theme');
-        if (savedTheme === 'dark') {
-            document.documentElement.setAttribute('data-theme', 'dark');
-            this.currentTheme = 'dark';
+        const saved = localStorage.getItem('eisen_theme') || 'light';
+        this.themePreference = saved;
+        this.applyThemePreference();
+
+        // Listen for OS theme changes when in system mode
+        this.systemDarkMediaQuery.addEventListener('change', () => {
+            if (this.themePreference === 'system') {
+                this.applyThemePreference();
+            }
+        });
+    }
+
+    applyThemePreference() {
+        let effective;
+        if (this.themePreference === 'system') {
+            effective = this.systemDarkMediaQuery.matches ? 'dark' : 'light';
+        } else {
+            effective = this.themePreference;
         }
+
+        if (effective === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        } else {
+            document.documentElement.removeAttribute('data-theme');
+        }
+        this.currentTheme = effective;
+        this.updateThemeToggleIcon();
+        this.updateThemeSelectorUI();
+    }
+
+    setThemePreference(pref) {
+        this.themePreference = pref;
+        localStorage.setItem('eisen_theme', pref);
+        this.applyThemePreference();
     }
 
     toggleApplicationTheme() {
-        if (this.currentTheme === 'light') {
-            document.documentElement.setAttribute('data-theme', 'dark');
-            this.currentTheme = 'dark';
-        } else {
-            document.documentElement.removeAttribute('data-theme');
-            this.currentTheme = 'light';
-        }
-        localStorage.setItem('eisen_theme', this.currentTheme);
+        const cycle = ['light', 'dark', 'system'];
+        const idx = cycle.indexOf(this.themePreference);
+        const next = cycle[(idx + 1) % cycle.length];
+        this.setThemePreference(next);
+    }
+
+    updateThemeToggleIcon() {
+        const iconEl = this.elements.themeBtn.querySelector('.icon-theme');
+        if (!iconEl) return;
+        const icons = { light: '☀', dark: '☾', system: '◐' };
+        iconEl.textContent = icons[this.themePreference] || '◐';
+    }
+
+    updateThemeSelectorUI() {
+        const selector = document.getElementById('themeSelector');
+        if (!selector) return;
+        selector.querySelectorAll('.theme-option').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.theme === this.themePreference);
+        });
     }
 
     openTaskCreationModal() {
@@ -972,6 +1022,7 @@ class EisenMatrixController {
         this.elements.backlogView.classList.add('hidden');
         this.elements.profileView.classList.remove('hidden');
         document.getElementById('filterStrip').classList.add('hidden');
+        this.updateThemeSelectorUI();
     }
 
     hideProfileView() {
@@ -1019,14 +1070,7 @@ class EisenMatrixController {
                     this.persistBacklogData(data.backlog);
                 }
                 if (data.theme) {
-                    localStorage.setItem('eisen_theme', data.theme);
-                    if (data.theme === 'dark') {
-                        document.documentElement.setAttribute('data-theme', 'dark');
-                        this.currentTheme = 'dark';
-                    } else {
-                        document.documentElement.removeAttribute('data-theme');
-                        this.currentTheme = 'light';
-                    }
+                    this.setThemePreference(data.theme);
                 }
                 if (data.collapsed) {
                     this.collapsedTasks = new Set(data.collapsed);
@@ -1178,7 +1222,7 @@ class EisenMatrixController {
         const card = document.querySelector(`.backlog-task-card[data-backlog-id="${taskId}"]`);
         if (card) {
             card.classList.toggle('collapsed', this.collapsedTasks.has(taskId));
-            const btn = card.querySelector('.collapse-btn');
+            const btn = card.querySelector('.task-collapse-btn');
             if (btn) btn.textContent = this.collapsedTasks.has(taskId) ? '▸' : '▾';
         }
     }
@@ -1278,8 +1322,13 @@ class EisenMatrixController {
 
         // Apply search and filter
         const filtered = sorted.filter(task => {
-            const matchesFilter = this.backlogActiveFilters.size === 0 || 
-                (task.labels && task.labels.some(l => this.backlogActiveFilters.has(l)));
+            let matchesFilter;
+            if (this.backlogActiveFilters.has('__no_tags__')) {
+                matchesFilter = !task.labels || task.labels.length === 0;
+            } else {
+                matchesFilter = this.backlogActiveFilters.size === 0 || 
+                    (task.labels && task.labels.some(l => this.backlogActiveFilters.has(l)));
+            }
             const matchesSearch = !this.backlogSearchQuery || 
                 task.content.toLowerCase().includes(this.backlogSearchQuery) ||
                 (task.labels && task.labels.some(l => l.toLowerCase().includes(this.backlogSearchQuery)));
@@ -1320,16 +1369,18 @@ class EisenMatrixController {
             return `
                 <div class="backlog-task-card task-card${collapsedClass}" data-backlog-id="${task.id}" draggable="true">
                     <div class="task-header">
-                        <button class="collapse-btn" title="Collapse/Expand">${collapseIcon}</button>
-                        ${collapsedSummary}
+                        <div class="task-header-left">
+                            <button class="task-collapse-btn" title="Collapse/Expand">${collapseIcon}</button>
+                            <span class="backlog-task-date">${date}</span>
+                            ${collapsedSummary}
+                        </div>
+                        <div class="task-actions">
+                            <button class="task-action-btn btn-delete" title="Delete">✕</button>
+                        </div>
                     </div>
                     <div class="backlog-card-text task-text">${this.escapeHTML(task.content)}</div>
                     ${tagsHTML}
                     ${linksHTML}
-                    <div class="task-controls">
-                        <span class="backlog-task-date">${date}</span>
-                        <button class="task-btn-delete" title="Delete">✕</button>
-                    </div>
                 </div>
             `;
         }).join('');
@@ -1349,7 +1400,7 @@ class EisenMatrixController {
             });
 
             // Collapse
-            el.querySelector('.collapse-btn')?.addEventListener('click', (evt) => {
+            el.querySelector('.task-collapse-btn')?.addEventListener('click', (evt) => {
                 evt.stopPropagation();
                 this.toggleBacklogCollapse(taskId);
             });
@@ -1362,7 +1413,7 @@ class EisenMatrixController {
             });
 
             // Delete
-            el.querySelector('.task-btn-delete')?.addEventListener('click', (evt) => {
+            el.querySelector('.btn-delete')?.addEventListener('click', (evt) => {
                 evt.stopPropagation();
                 this.promptDeleteBacklog(taskId);
             });
@@ -1376,7 +1427,9 @@ class EisenMatrixController {
         });
 
         const isAllActive = this.backlogActiveFilters.size === 0;
+        const isNoTagsActive = this.backlogActiveFilters.has('__no_tags__');
         const filterHTML = [`<button class="tag-filter ${isAllActive ? 'active' : ''}" data-filter="all">ALL</button>`];
+        filterHTML.push(`<button class="tag-filter ${isNoTagsActive ? 'active' : ''}" data-filter="__no_tags__">NO TAGS</button>`);
         
         Array.from(allLabels).sort().forEach(label => {
             const isActive = this.backlogActiveFilters.has(label);
@@ -1390,7 +1443,15 @@ class EisenMatrixController {
                 const filterValue = btn.dataset.filter;
                 if (filterValue === 'all') {
                     this.backlogActiveFilters.clear();
+                } else if (filterValue === '__no_tags__') {
+                    if (this.backlogActiveFilters.has('__no_tags__')) {
+                        this.backlogActiveFilters.delete('__no_tags__');
+                    } else {
+                        this.backlogActiveFilters.clear();
+                        this.backlogActiveFilters.add('__no_tags__');
+                    }
                 } else {
+                    this.backlogActiveFilters.delete('__no_tags__');
                     if (this.backlogActiveFilters.has(filterValue)) {
                         this.backlogActiveFilters.delete(filterValue);
                     } else {
@@ -1411,7 +1472,9 @@ class EisenMatrixController {
         });
 
         const isAllActive = this.activeFilters.size === 0;
+        const isNoTagsActive = this.activeFilters.has('__no_tags__');
         const filterHTML = [`<button class="tag-filter ${isAllActive ? 'active' : ''}" data-filter="all">ALL</button>`];
+        filterHTML.push(`<button class="tag-filter ${isNoTagsActive ? 'active' : ''}" data-filter="__no_tags__">NO TAGS</button>`);
         
         Array.from(allLabels).sort().forEach(label => {
             const isActive = this.activeFilters.has(label);
@@ -1425,7 +1488,18 @@ class EisenMatrixController {
                 const filterValue = btn.dataset.filter;
                 if (filterValue === 'all') {
                     this.clearTagFilters();
+                } else if (filterValue === '__no_tags__') {
+                    // Toggle no-tags filter (exclusive — clears other tag filters)
+                    if (this.activeFilters.has('__no_tags__')) {
+                        this.activeFilters.delete('__no_tags__');
+                    } else {
+                        this.activeFilters.clear();
+                        this.activeFilters.add('__no_tags__');
+                    }
+                    this.renderApplicationState();
                 } else {
+                    // Clear no-tags if selecting a specific tag
+                    this.activeFilters.delete('__no_tags__');
                     this.toggleTagFilter(filterValue);
                 }
             });
@@ -1450,7 +1524,12 @@ class EisenMatrixController {
 
             const allQuadrantTasks = dataStore.activeTasks.filter(t => t.quadrant === quadrantId);
             const quadrantTasks = allQuadrantTasks.filter(task => {
-                const matchesFilter = this.activeFilters.size === 0 || task.labels.some(l => this.activeFilters.has(l));
+                let matchesFilter;
+                if (this.activeFilters.has('__no_tags__')) {
+                    matchesFilter = task.labels.length === 0;
+                } else {
+                    matchesFilter = this.activeFilters.size === 0 || task.labels.some(l => this.activeFilters.has(l));
+                }
                 const matchesSearch = !this.searchQuery || 
                     task.content.toLowerCase().includes(this.searchQuery) ||
                     task.labels.some(l => l.toLowerCase().includes(this.searchQuery));
@@ -1649,7 +1728,9 @@ class EisenMatrixController {
         // Filter tasks
         let filteredTasks = dataStore.completedTasks;
         
-        if (this.archiveActiveFilters.size > 0) {
+        if (this.archiveActiveFilters.has('__no_tags__')) {
+            filteredTasks = filteredTasks.filter(t => t.labels.length === 0);
+        } else if (this.archiveActiveFilters.size > 0) {
             filteredTasks = filteredTasks.filter(t => t.labels.some(l => this.archiveActiveFilters.has(l)));
         }
         if (this.archiveSearchQuery) {
@@ -1699,7 +1780,9 @@ class EisenMatrixController {
         });
 
         const isAllActive = this.archiveActiveFilters.size === 0;
+        const isNoTagsActive = this.archiveActiveFilters.has('__no_tags__');
         const filterHTML = [`<button class="tag-filter ${isAllActive ? 'active' : ''}" data-filter="all">ALL</button>`];
+        filterHTML.push(`<button class="tag-filter ${isNoTagsActive ? 'active' : ''}" data-filter="__no_tags__">NO TAGS</button>`);
         
         Array.from(allLabels).sort().forEach(label => {
             const isActive = this.archiveActiveFilters.has(label);
@@ -1713,7 +1796,15 @@ class EisenMatrixController {
                 const filterValue = btn.dataset.filter;
                 if (filterValue === 'all') {
                     this.archiveActiveFilters.clear();
+                } else if (filterValue === '__no_tags__') {
+                    if (this.archiveActiveFilters.has('__no_tags__')) {
+                        this.archiveActiveFilters.delete('__no_tags__');
+                    } else {
+                        this.archiveActiveFilters.clear();
+                        this.archiveActiveFilters.add('__no_tags__');
+                    }
                 } else {
+                    this.archiveActiveFilters.delete('__no_tags__');
                     if (this.archiveActiveFilters.has(filterValue)) {
                         this.archiveActiveFilters.delete(filterValue);
                     } else {
