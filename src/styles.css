@@ -1591,6 +1591,10 @@ body {
     border-color: var(--accent-hot);
 }
 
+.settings-card-warning {
+    border-color: var(--accent-cyber);
+}
+
 .settings-card-info {
     flex: 1;
 }
@@ -1625,6 +1629,28 @@ body {
 .settings-btn-danger:hover {
     transform: translate(-2px, -2px);
     box-shadow: var(--shadow-brutal-sm);
+}
+
+.settings-btn-warning {
+    background: var(--accent-cyber) !important;
+    color: #000 !important;
+    border-color: var(--accent-cyber) !important;
+}
+
+.settings-btn-warning:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: var(--shadow-brutal-sm);
+}
+
+.demo-confirm-header {
+    background: var(--accent-cyber);
+    color: #000;
+}
+
+.btn-confirm-demo {
+    background: var(--accent-cyber);
+    color: #000;
+    border-color: var(--accent-cyber) !important;
 }
 
 /* Theme Selector */

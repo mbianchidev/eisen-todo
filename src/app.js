@@ -94,6 +94,10 @@ class EisenMatrixController {
             deleteAllConfirmOverlay: document.getElementById('deleteAllConfirmOverlay'),
             confirmDeleteAllBtn: document.getElementById('confirmDeleteAllBtn'),
             cancelDeleteAllBtn: document.getElementById('cancelDeleteAllBtn'),
+            loadDemoDataBtn: document.getElementById('loadDemoDataBtn'),
+            demoDataConfirmOverlay: document.getElementById('demoDataConfirmOverlay'),
+            confirmDemoDataBtn: document.getElementById('confirmDemoDataBtn'),
+            cancelDemoDataBtn: document.getElementById('cancelDemoDataBtn'),
             // Task counters
             mainTaskCounter: document.getElementById('mainTaskCounter'),
             // Backlog search/filter
@@ -167,6 +171,12 @@ class EisenMatrixController {
         this.elements.cancelDeleteAllBtn.addEventListener('click', () => this.cancelDeleteAll());
         this.elements.deleteAllConfirmOverlay.addEventListener('click', (evt) => {
             if (evt.target === this.elements.deleteAllConfirmOverlay) this.cancelDeleteAll();
+        });
+        this.elements.loadDemoDataBtn.addEventListener('click', () => this.promptDemoData());
+        this.elements.confirmDemoDataBtn.addEventListener('click', () => this.executeDemoDataLoad());
+        this.elements.cancelDemoDataBtn.addEventListener('click', () => this.cancelDemoData());
+        this.elements.demoDataConfirmOverlay.addEventListener('click', (evt) => {
+            if (evt.target === this.elements.demoDataConfirmOverlay) this.cancelDemoData();
         });
 
         // Backlog search
@@ -1121,6 +1131,161 @@ class EisenMatrixController {
 
     cancelDeleteAll() {
         this.elements.deleteAllConfirmOverlay.classList.add('hidden');
+    }
+
+    // --- Demo Data ---
+
+    promptDemoData() {
+        this.elements.demoDataConfirmOverlay.classList.remove('hidden');
+    }
+
+    cancelDemoData() {
+        this.elements.demoDataConfirmOverlay.classList.add('hidden');
+    }
+
+    executeDemoDataLoad() {
+        const now = new Date();
+        const demoTasks = {
+            activeTasks: [
+                {
+                    id: this.generateUniqueIdentifier(),
+                    content: 'Fix critical production bug in payment service',
+                    quadrant: 'urgent-important',
+                    labels: ['work', 'bug'],
+                    urls: [],
+                    status: 'in-progress',
+                    createdAt: new Date(now - 86400000).toISOString()
+                },
+                {
+                    id: this.generateUniqueIdentifier(),
+                    content: 'Prepare slides for tomorrow\'s board meeting',
+                    quadrant: 'urgent-important',
+                    labels: ['work', 'meeting'],
+                    urls: [],
+                    status: 'todo',
+                    createdAt: new Date(now - 43200000).toISOString()
+                },
+                {
+                    id: this.generateUniqueIdentifier(),
+                    content: 'Plan Q3 product roadmap',
+                    quadrant: 'not-urgent-important',
+                    labels: ['work', 'planning'],
+                    urls: [],
+                    status: 'todo',
+                    createdAt: new Date(now - 172800000).toISOString()
+                },
+                {
+                    id: this.generateUniqueIdentifier(),
+                    content: 'Read "Deep Work" by Cal Newport',
+                    quadrant: 'not-urgent-important',
+                    labels: ['personal', 'learning'],
+                    urls: [],
+                    status: 'in-progress',
+                    createdAt: new Date(now - 604800000).toISOString()
+                },
+                {
+                    id: this.generateUniqueIdentifier(),
+                    content: 'Start daily 20-minute exercise routine',
+                    quadrant: 'not-urgent-important',
+                    labels: ['personal', 'health'],
+                    urls: [],
+                    status: 'todo',
+                    createdAt: new Date(now - 259200000).toISOString()
+                },
+                {
+                    id: this.generateUniqueIdentifier(),
+                    content: 'Reply to vendor emails about license renewal',
+                    quadrant: 'urgent-not-important',
+                    labels: ['work', 'admin'],
+                    urls: [],
+                    status: 'todo',
+                    createdAt: new Date(now - 86400000).toISOString()
+                },
+                {
+                    id: this.generateUniqueIdentifier(),
+                    content: 'Schedule dentist appointment',
+                    quadrant: 'urgent-not-important',
+                    labels: ['personal', 'health'],
+                    urls: [],
+                    status: 'todo',
+                    createdAt: new Date(now - 43200000).toISOString()
+                },
+                {
+                    id: this.generateUniqueIdentifier(),
+                    content: 'Clean up browser bookmarks',
+                    quadrant: 'not-urgent-not-important',
+                    labels: ['personal'],
+                    urls: [],
+                    status: 'todo',
+                    createdAt: new Date(now - 432000000).toISOString()
+                },
+                {
+                    id: this.generateUniqueIdentifier(),
+                    content: 'Reorganize desktop icons',
+                    quadrant: 'not-urgent-not-important',
+                    labels: ['personal'],
+                    urls: [],
+                    status: 'todo',
+                    createdAt: new Date(now - 345600000).toISOString()
+                }
+            ],
+            completedTasks: [
+                {
+                    id: this.generateUniqueIdentifier(),
+                    content: 'Set up project repository',
+                    quadrant: 'urgent-important',
+                    labels: ['work'],
+                    urls: [],
+                    status: 'done',
+                    createdAt: new Date(now - 604800000).toISOString(),
+                    completedAt: new Date(now - 518400000).toISOString()
+                },
+                {
+                    id: this.generateUniqueIdentifier(),
+                    content: 'Complete onboarding paperwork',
+                    quadrant: 'urgent-not-important',
+                    labels: ['work', 'admin'],
+                    urls: [],
+                    status: 'done',
+                    createdAt: new Date(now - 864000000).toISOString(),
+                    completedAt: new Date(now - 777600000).toISOString()
+                }
+            ]
+        };
+
+        const demoBacklog = [
+            {
+                id: this.generateUniqueIdentifier(),
+                content: 'Research new project management tools',
+                labels: ['work', 'learning'],
+                urls: [],
+                createdAt: new Date(now - 172800000).toISOString()
+            },
+            {
+                id: this.generateUniqueIdentifier(),
+                content: 'Write blog post about productivity tips',
+                labels: ['personal', 'writing'],
+                urls: [],
+                createdAt: new Date(now - 259200000).toISOString()
+            }
+        ];
+
+        this.persistDataToStorage(demoTasks);
+        this.persistBacklogData(demoBacklog);
+
+        // Reset in-memory filter/search state
+        this.collapsedTasks.clear();
+        this.saveCollapsedState();
+        this.activeFilters.clear();
+        this.searchQuery = '';
+        this.backlogSearchQuery = '';
+        this.backlogActiveFilters.clear();
+        this.archiveSearchQuery = '';
+        this.archiveActiveFilters.clear();
+
+        this.cancelDemoData();
+        this.hideProfileView();
+        this.renderApplicationState();
     }
 
     // --- Backlog ---
