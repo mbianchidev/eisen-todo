@@ -386,6 +386,26 @@ body {
     line-height: 1.5;
     margin-bottom: 1rem;
     word-wrap: break-word;
+    cursor: text;
+    border-radius: 2px;
+    padding: 0.25rem;
+    margin: -0.25rem;
+    margin-bottom: 0.75rem;
+    transition: background 0.15s ease;
+}
+
+.task-text:hover {
+    background: rgba(0, 102, 255, 0.06);
+}
+
+.task-text[contenteditable="true"] {
+    outline: 2px solid var(--accent-electric);
+    background: var(--secondary-bg);
+}
+
+.task-card.inline-editing {
+    box-shadow: 0 0 0 3px var(--accent-electric);
+    z-index: 10;
 }
 
 .task-tags {
@@ -702,37 +722,9 @@ body {
     display: none !important;
 }
 
-/* === QUADRANT ADD BUTTON === */
+/* === QUADRANT HEADER === */
 .quadrant-header {
     position: relative;
-}
-
-.quadrant-add-btn {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    width: 36px;
-    height: 36px;
-    font-family: 'Space Mono', monospace;
-    font-size: 1.5rem;
-    font-weight: 700;
-    line-height: 1;
-    border: var(--border-medium);
-    background: var(--primary-bg);
-    color: var(--text-primary);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.15s ease;
-    box-shadow: var(--shadow-brutal-xs);
-}
-
-.quadrant-add-btn:hover {
-    background: var(--text-primary);
-    color: var(--primary-bg);
-    transform: translate(1px, 1px);
-    box-shadow: none;
 }
 
 /* === DRAG AND DROP === */

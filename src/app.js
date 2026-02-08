@@ -10,6 +10,8 @@ class EisenMatrixController {
         this.isUrgent = false;
         this.isImportant = false;
         this.draggedTaskId = null;
+        this.inlineEditingTaskId = null; // currently inline-editing task
+        this.draftsKey = 'eisen_drafts_v1';
         
         this.initializeApplication();
     }
@@ -18,6 +20,7 @@ class EisenMatrixController {
         this.bindUIElements();
         this.attachEventHandlers();
         this.loadApplicationTheme();
+        this.loadDrafts();
         this.renderApplicationState();
     }
 
@@ -65,12 +68,7 @@ class EisenMatrixController {
             }
         });
 
-        // Per-quadrant add buttons
-        document.querySelectorAll('.quadrant-add-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.openTaskCreationModalForQuadrant(btn.dataset.addQuadrant);
-            });
-        });
+        // Per-quadrant add buttons (removed — quick-add input is sufficient)
 
         // Urgency / importance toggle buttons
         this.elements.urgentYes.addEventListener('click', () => this.setUrgent(true));
@@ -106,6 +104,20 @@ class EisenMatrixController {
                     this.handleQuickAdd(input);
                 }
             });
+            // Save drafts on every keystroke
+            input.addEventListener('input', () => {
+                this.saveDrafts();
+            });
+        });
+
+        // Click outside to save inline editing
+        document.addEventListener('click', (evt) => {
+            if (this.inlineEditingTaskId) {
+                const editingCard = document.querySelector(`.task-card[data-task-id="${this.inlineEditingTaskId}"]`);
+                if (editingCard && !editingCard.contains(evt.target)) {
+                    this.saveInlineEdit(this.inlineEditingTaskId);
+                }
+            }
         });
     }
 
@@ -151,6 +163,127 @@ class EisenMatrixController {
         this.persistDataToStorage(dataStore);
 
         inputElement.value = '';
+        this.saveDrafts();
+        this.renderApplicationState();
+    }
+
+    // --- Draft persistence ---
+
+    saveDrafts() {
+        const drafts = {};
+        document.querySelectorAll('.quick-add-input').forEach(input => {
+            const q = input.dataset.quadrant;
+            if (input.value) {
+                drafts[q] = input.value;
+            }
+        });
+        localStorage.setItem(this.draftsKey, JSON.stringify(drafts));
+    }
+
+    loadDrafts() {
+        const raw = localStorage.getItem(this.draftsKey);
+        if (!raw) return;
+        try {
+            const drafts = JSON.parse(raw);
+            document.querySelectorAll('.quick-add-input').forEach(input => {
+                const q = input.dataset.quadrant;
+                if (drafts[q]) {
+                    input.value = drafts[q];
+                }
+            });
+        } catch { /* ignore */ }
+    }
+
+    // --- Inline click-to-edit ---
+
+    enterInlineEdit(taskId) {
+        // Save any previous inline edit first
+        if (this.inlineEditingTaskId && this.inlineEditingTaskId !== taskId) {
+            this.saveInlineEdit(this.inlineEditingTaskId);
+        }
+
+        this.inlineEditingTaskId = taskId;
+
+        const dataStore = this.retrieveStoredData();
+        const task = dataStore.activeTasks.find(t => t.id === taskId);
+        if (!task) return;
+
+        const card = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
+        if (!card) return;
+
+        const textEl = card.querySelector('.task-text');
+        if (!textEl || textEl.contentEditable === 'true') return;
+
+        card.classList.add('inline-editing');
+        card.setAttribute('draggable', 'false');
+
+        // Show editable raw text with tags and links inline
+        const rawParts = [task.content];
+        if (task.labels.length > 0) {
+            rawParts.push(task.labels.map(l => `#${l}`).join(' '));
+        }
+        if (task.urls.length > 0) {
+            rawParts.push(task.urls.join(' '));
+        }
+        textEl.textContent = rawParts.join(' ');
+
+        // Make text editable
+        textEl.contentEditable = 'true';
+        textEl.focus();
+
+        // Place cursor at end
+        const range = document.createRange();
+        range.selectNodeContents(textEl);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+
+        // Save on Enter (without Shift)
+        textEl.addEventListener('keydown', (evt) => {
+            if (evt.key === 'Enter' && !evt.shiftKey) {
+                evt.preventDefault();
+                this.saveInlineEdit(taskId);
+            }
+            if (evt.key === 'Escape') {
+                evt.preventDefault();
+                this.cancelInlineEdit(taskId);
+            }
+        });
+    }
+
+    saveInlineEdit(taskId) {
+        const card = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
+        if (!card) {
+            this.inlineEditingTaskId = null;
+            return;
+        }
+
+        const textEl = card.querySelector('.task-text');
+        if (!textEl || textEl.contentEditable !== 'true') {
+            this.inlineEditingTaskId = null;
+            return;
+        }
+
+        const newContent = textEl.textContent.trim();
+        if (newContent) {
+            const { content, labels, urls } = this.parseQuickInput(newContent);
+            const dataStore = this.retrieveStoredData();
+            const task = dataStore.activeTasks.find(t => t.id === taskId);
+            if (task && content) {
+                task.content = content;
+                task.labels = labels;
+                task.urls = urls;
+                this.persistDataToStorage(dataStore);
+            }
+        }
+
+        this.inlineEditingTaskId = null;
+        this.renderApplicationState();
+    }
+
+    cancelInlineEdit(taskId) {
+        this.inlineEditingTaskId = null;
         this.renderApplicationState();
     }
 
@@ -359,6 +492,9 @@ class EisenMatrixController {
         
         this.persistDataToStorage(dataStore);
         this.renderApplicationState();
+        if (!this.elements.archiveView.classList.contains('hidden')) {
+            this.populateArchiveDisplay();
+        }
     }
 
     advanceTaskStatus(taskId) {
@@ -429,6 +565,9 @@ class EisenMatrixController {
         
         this.persistDataToStorage(dataStore);
         this.renderApplicationState();
+        if (!this.elements.archiveView.classList.contains('hidden')) {
+            this.populateArchiveDisplay();
+        }
     }
 
     displayArchiveView() {
@@ -494,6 +633,10 @@ class EisenMatrixController {
                 
                 // Drag events
                 card.addEventListener('dragstart', (evt) => {
+                    if (this.inlineEditingTaskId === taskId) {
+                        evt.preventDefault();
+                        return;
+                    }
                     evt.dataTransfer.setData('text/plain', taskId);
                     card.classList.add('dragging');
                 });
@@ -501,10 +644,25 @@ class EisenMatrixController {
                     card.classList.remove('dragging');
                 });
 
-                card.querySelector('.btn-edit')?.addEventListener('click', () => this.openTaskEditModal(taskId));
-                card.querySelector('.btn-delete')?.addEventListener('click', () => this.removeTaskPermanently(taskId));
-                card.querySelector('.btn-advance')?.addEventListener('click', () => this.advanceTaskStatus(taskId));
-                card.querySelector('.btn-revert')?.addEventListener('click', () => this.revertTaskStatus(taskId));
+                // Click on task text to enter inline edit
+                const taskTextEl = card.querySelector('.task-text');
+                taskTextEl?.addEventListener('click', (evt) => {
+                    evt.stopPropagation();
+                    this.enterInlineEdit(taskId);
+                });
+
+                card.querySelector('.btn-delete')?.addEventListener('click', (evt) => {
+                    evt.stopPropagation();
+                    this.removeTaskPermanently(taskId);
+                });
+                card.querySelector('.btn-advance')?.addEventListener('click', (evt) => {
+                    evt.stopPropagation();
+                    this.advanceTaskStatus(taskId);
+                });
+                card.querySelector('.btn-revert')?.addEventListener('click', (evt) => {
+                    evt.stopPropagation();
+                    this.revertTaskStatus(taskId);
+                });
             });
         });
     }
@@ -537,11 +695,10 @@ class EisenMatrixController {
                 <div class="task-header">
                     <span class="task-status-badge ${statusClasses[task.status]}">${statusLabel}</span>
                     <div class="task-actions">
-                        <button class="task-action-btn btn-edit" title="Edit">✎</button>
                         <button class="task-action-btn btn-delete" title="Delete">✕</button>
                     </div>
                 </div>
-                <p class="task-text">${this.escapeHTML(task.content)}</p>
+                <p class="task-text" title="Click to edit">${this.escapeHTML(task.content)}</p>
                 ${tagsHTML}
                 ${linksHTML}
                 <div class="task-controls">
