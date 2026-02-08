@@ -1461,7 +1461,12 @@ class EisenMatrixController {
 
             // Update quadrant count badge
             const countEl = document.querySelector(`.quadrant-count[data-count-quadrant="${quadrantId}"]`);
-            if (countEl) countEl.textContent = allQuadrantTasks.length;
+            if (countEl) {
+                const isFiltering = this.activeFilters.size > 0 || this.searchQuery;
+                countEl.textContent = isFiltering
+                    ? `${quadrantTasks.length}/${allQuadrantTasks.length}`
+                    : allQuadrantTasks.length;
+            }
 
             zone.innerHTML = quadrantTasks.map(task => this.generateTaskCardHTML(task)).join('');
 
