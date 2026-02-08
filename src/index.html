@@ -13,7 +13,9 @@
     <!-- Header Control Panel -->
     <header class="control-panel">
         <div class="brand-section">
-            <h1 class="logo">EISENTODO</h1>
+            <a href="#" class="logo-link" id="logoLink">
+                <h1 class="logo">EISENTODO</h1>
+            </a>
             <p class="tagline">Stop wondering what to do next</p>
         </div>
         
@@ -21,11 +23,11 @@
             <button class="ctrl-btn" id="themeToggleBtn" aria-label="Toggle theme">
                 <span class="icon-theme">◐</span>
             </button>
+            <button class="ctrl-btn" id="showBacklogBtn">
+                <span>BACKLOG</span>
+            </button>
             <button class="ctrl-btn" id="showArchiveBtn">
                 <span>ARCHIVE</span>
-            </button>
-            <button class="ctrl-btn primary-btn" id="createTaskBtn">
-                <span>+ NEW TASK</span>
             </button>
         </div>
     </header>
@@ -115,6 +117,58 @@
         <div class="archive-list" id="archiveList"></div>
     </div>
 
+    <!-- Backlog View (Hidden by default) -->
+    <div class="backlog-view hidden" id="backlogView">
+        <div class="backlog-header">
+            <div>
+                <h2>📋 BACKLOG</h2>
+                <p class="backlog-subtitle">Unsorted tasks — drag them into a quadrant when ready</p>
+            </div>
+            <div class="backlog-header-actions">
+                <div class="backlog-sort">
+                    <span class="backlog-sort-label">ORDER:</span>
+                    <button class="ctrl-btn backlog-sort-btn active" id="backlogFifoBtn">FIFO</button>
+                    <button class="ctrl-btn backlog-sort-btn" id="backlogLifoBtn">LIFO</button>
+                </div>
+                <button class="ctrl-btn" id="closeBacklogBtn">
+                    <span>← BACK</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Quadrant drop buckets -->
+        <div class="backlog-buckets">
+            <div class="backlog-bucket" data-bucket="urgent-important">
+                <span class="bucket-icon">🔥</span>
+                <span class="bucket-label">DO FIRST</span>
+                <span class="bucket-hint">Drop here</span>
+            </div>
+            <div class="backlog-bucket" data-bucket="not-urgent-important">
+                <span class="bucket-icon">📅</span>
+                <span class="bucket-label">SCHEDULE</span>
+                <span class="bucket-hint">Drop here</span>
+            </div>
+            <div class="backlog-bucket" data-bucket="urgent-not-important">
+                <span class="bucket-icon">👥</span>
+                <span class="bucket-label">DELEGATE</span>
+                <span class="bucket-hint">Drop here</span>
+            </div>
+            <div class="backlog-bucket" data-bucket="not-urgent-not-important">
+                <span class="bucket-icon">🗑️</span>
+                <span class="bucket-label">ELIMINATE</span>
+                <span class="bucket-hint">Drop here</span>
+            </div>
+        </div>
+
+        <!-- Backlog task input -->
+        <div class="backlog-add-bar">
+            <input type="text" class="backlog-add-input" id="backlogAddInput" placeholder="Add a task to the backlog... #tag https://link" />
+        </div>
+
+        <!-- Backlog task list -->
+        <div class="backlog-list" id="backlogList"></div>
+    </div>
+
     <!-- Task Creation/Edit Modal -->
     <div class="modal-overlay hidden" id="taskModal">
         <div class="modal-content">
@@ -191,6 +245,45 @@
                     <button class="btn-confirm-archive" id="confirmArchiveBtn">NO, ARCHIVE</button>
                     <button class="btn-confirm-cancel" id="confirmCancelBtn">NO, CANCEL</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Onboarding Tour -->
+    <div class="tour-overlay hidden" id="tourOverlay">
+        <div class="tour-dialog">
+            <div class="tour-header">
+                <h2>👋 WELCOME TO EISENTODO</h2>
+            </div>
+            <div class="tour-body">
+                <p>Organize your tasks using the <strong>Eisenhower Matrix</strong> — split by urgency and importance.</p>
+                <div class="tour-steps">
+                    <div class="tour-step">
+                        <span class="tour-step-icon">✍️</span>
+                        <div>
+                            <strong>Write your task</strong>
+                            <p>Use the input bar at the bottom of any quadrant.</p>
+                        </div>
+                    </div>
+                    <div class="tour-step">
+                        <span class="tour-step-icon">🏷️</span>
+                        <div>
+                            <strong>Add #tags</strong>
+                            <p>Type <code>#work</code> or <code>#personal</code> to categorize.</p>
+                        </div>
+                    </div>
+                    <div class="tour-step">
+                        <span class="tour-step-icon">🔗</span>
+                        <div>
+                            <strong>Add links</strong>
+                            <p>Paste <code>https://your.resource.com</code> to attach URLs.</p>
+                        </div>
+                    </div>
+                </div>
+                <p class="tour-cta">Try it yourself!</p>
+            </div>
+            <div class="tour-footer">
+                <button class="btn-submit tour-dismiss-btn" id="tourDismissBtn">GOT IT!</button>
             </div>
         </div>
     </div>

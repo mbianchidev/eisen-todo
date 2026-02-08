@@ -17,6 +17,10 @@ class EisenMatrixController {
         this.collapsedTasks = new Set(); // ids of collapsed tasks
         this.searchQuery = ''; // text search filter
         this.allCollapsed = false; // toggle state for collapse-all button
+        this.backlogKey = 'eisen_backlog_v1';
+        this.backlogSortOrder = 'fifo'; // 'fifo' or 'lifo'
+        this.tourKey = 'eisen_tour_seen_v1';
+        this.inlineEditingBacklogId = null; // currently inline-editing backlog task
         
         this.initializeApplication();
     }
@@ -28,12 +32,13 @@ class EisenMatrixController {
         this.loadApplicationTheme();
         this.loadDrafts();
         this.renderApplicationState();
+        this.showTourIfFirstVisit();
     }
 
     bindUIElements() {
         this.elements = {
             themeBtn: document.getElementById('themeToggleBtn'),
-            createBtn: document.getElementById('createTaskBtn'),
+            logoLink: document.getElementById('logoLink'),
             archiveBtn: document.getElementById('showArchiveBtn'),
             closeArchiveBtn: document.getElementById('closeArchiveBtn'),
             modalOverlay: document.getElementById('taskModal'),
@@ -62,15 +67,29 @@ class EisenMatrixController {
             confirmCancelBtn: document.getElementById('confirmCancelBtn'),
             searchInput: document.getElementById('searchInput'),
             collapseAllBtn: document.getElementById('collapseAllBtn'),
-            collapseAllIcon: document.getElementById('collapseAllIcon')
+            collapseAllIcon: document.getElementById('collapseAllIcon'),
+            backlogView: document.getElementById('backlogView'),
+            backlogBtn: document.getElementById('showBacklogBtn'),
+            closeBacklogBtn: document.getElementById('closeBacklogBtn'),
+            backlogList: document.getElementById('backlogList'),
+            backlogAddInput: document.getElementById('backlogAddInput'),
+            backlogFifoBtn: document.getElementById('backlogFifoBtn'),
+            backlogLifoBtn: document.getElementById('backlogLifoBtn'),
+            tourOverlay: document.getElementById('tourOverlay'),
+            tourDismissBtn: document.getElementById('tourDismissBtn')
         };
     }
 
     attachEventHandlers() {
         this.elements.themeBtn.addEventListener('click', () => this.toggleApplicationTheme());
-        this.elements.createBtn.addEventListener('click', () => this.openTaskCreationModal());
+        this.elements.logoLink.addEventListener('click', (evt) => {
+            evt.preventDefault();
+            this.navigateHome();
+        });
         this.elements.archiveBtn.addEventListener('click', () => this.displayArchiveView());
         this.elements.closeArchiveBtn.addEventListener('click', () => this.hideArchiveView());
+        this.elements.backlogBtn.addEventListener('click', () => this.displayBacklogView());
+        this.elements.closeBacklogBtn.addEventListener('click', () => this.hideBacklogView());
         this.elements.modalCloseBtn.addEventListener('click', () => this.closeTaskModal());
         this.elements.modalCancelBtn.addEventListener('click', () => this.closeTaskModal());
         this.elements.taskForm.addEventListener('submit', (evt) => this.handleTaskSubmission(evt));
@@ -95,6 +114,47 @@ class EisenMatrixController {
 
         // Collapse/Expand all
         this.elements.collapseAllBtn.addEventListener('click', () => this.toggleCollapseAll());
+
+        // Tour dismiss
+        this.elements.tourDismissBtn.addEventListener('click', () => this.dismissTour());
+        this.elements.tourOverlay.addEventListener('click', (evt) => {
+            if (evt.target === this.elements.tourOverlay) this.dismissTour();
+        });
+
+        // Backlog sort buttons
+        this.elements.backlogFifoBtn.addEventListener('click', () => this.setBacklogSort('fifo'));
+        this.elements.backlogLifoBtn.addEventListener('click', () => this.setBacklogSort('lifo'));
+
+        // Backlog add input
+        this.elements.backlogAddInput.addEventListener('keydown', (evt) => {
+            if (evt.key === 'Enter') {
+                evt.preventDefault();
+                this.handleBacklogAdd();
+            }
+        });
+
+        // Backlog bucket drop zones
+        document.querySelectorAll('.backlog-bucket').forEach(bucket => {
+            bucket.addEventListener('dragover', (evt) => {
+                evt.preventDefault();
+                evt.dataTransfer.dropEffect = 'move';
+                bucket.classList.add('drag-over');
+            });
+            bucket.addEventListener('dragleave', (evt) => {
+                if (!bucket.contains(evt.relatedTarget)) {
+                    bucket.classList.remove('drag-over');
+                }
+            });
+            bucket.addEventListener('drop', (evt) => {
+                evt.preventDefault();
+                bucket.classList.remove('drag-over');
+                const taskId = evt.dataTransfer.getData('text/plain');
+                const targetQuadrant = bucket.dataset.bucket;
+                if (taskId && targetQuadrant) {
+                    this.moveBacklogTaskToQuadrant(taskId, targetQuadrant);
+                }
+            });
+        });
 
         // Delete confirmation dialog
         this.elements.confirmDeleteBtn.addEventListener('click', () => this.executeDelete());
@@ -152,6 +212,12 @@ class EisenMatrixController {
                 const editingCard = document.querySelector(`.task-card[data-task-id="${this.inlineEditingTaskId}"]`);
                 if (editingCard && !editingCard.contains(evt.target)) {
                     this.saveInlineEdit(this.inlineEditingTaskId);
+                }
+            }
+            if (this.inlineEditingBacklogId) {
+                const editingEl = document.querySelector(`.backlog-task[data-backlog-id="${this.inlineEditingBacklogId}"]`);
+                if (editingEl && !editingEl.contains(evt.target)) {
+                    this.saveBacklogInlineEdit(this.inlineEditingBacklogId);
                 }
             }
         });
@@ -500,12 +566,20 @@ class EisenMatrixController {
 
     promptDelete(taskId) {
         this.pendingDeleteTaskId = taskId;
+        this.pendingDeleteSource = 'main';
+        this.elements.confirmArchiveBtn.style.display = '';
         this.elements.deleteConfirmOverlay.classList.remove('hidden');
     }
 
     executeDelete() {
         const taskId = this.pendingDeleteTaskId;
         if (!taskId) return;
+
+        if (this.pendingDeleteSource === 'backlog') {
+            this.deleteBacklogTask(taskId);
+            this.cancelDelete();
+            return;
+        }
 
         const dataStore = this.retrieveStoredData();
         dataStore.activeTasks = dataStore.activeTasks.filter(t => t.id !== taskId);
@@ -547,6 +621,7 @@ class EisenMatrixController {
 
     cancelDelete() {
         this.pendingDeleteTaskId = null;
+        this.pendingDeleteSource = null;
         this.elements.deleteConfirmOverlay.classList.add('hidden');
     }
 
@@ -793,13 +868,307 @@ class EisenMatrixController {
 
     displayArchiveView() {
         this.elements.mainMatrix.classList.add('hidden');
+        this.elements.backlogView.classList.add('hidden');
         this.elements.archiveView.classList.remove('hidden');
+        document.getElementById('filterStrip').classList.add('hidden');
         this.populateArchiveDisplay();
     }
 
     hideArchiveView() {
         this.elements.archiveView.classList.add('hidden');
         this.elements.mainMatrix.classList.remove('hidden');
+        document.getElementById('filterStrip').classList.remove('hidden');
+    }
+
+    // --- Navigation ---
+
+    navigateHome() {
+        this.elements.archiveView.classList.add('hidden');
+        this.elements.backlogView.classList.add('hidden');
+        this.elements.mainMatrix.classList.remove('hidden');
+        document.getElementById('filterStrip').classList.remove('hidden');
+        this.renderApplicationState();
+    }
+
+    // --- Onboarding Tour ---
+
+    showTourIfFirstVisit() {
+        if (!localStorage.getItem(this.tourKey)) {
+            this.elements.tourOverlay.classList.remove('hidden');
+        }
+    }
+
+    dismissTour() {
+        this.elements.tourOverlay.classList.add('hidden');
+        localStorage.setItem(this.tourKey, '1');
+    }
+
+    // --- Backlog ---
+
+    retrieveBacklogData() {
+        const raw = localStorage.getItem(this.backlogKey);
+        if (!raw) return [];
+        try {
+            return JSON.parse(raw);
+        } catch { return []; }
+    }
+
+    persistBacklogData(tasks) {
+        localStorage.setItem(this.backlogKey, JSON.stringify(tasks));
+    }
+
+    displayBacklogView() {
+        this.elements.mainMatrix.classList.add('hidden');
+        this.elements.archiveView.classList.add('hidden');
+        this.elements.backlogView.classList.remove('hidden');
+        document.getElementById('filterStrip').classList.add('hidden');
+        this.renderBacklogList();
+    }
+
+    hideBacklogView() {
+        this.elements.backlogView.classList.add('hidden');
+        this.elements.mainMatrix.classList.remove('hidden');
+        document.getElementById('filterStrip').classList.remove('hidden');
+        this.renderApplicationState();
+    }
+
+    setBacklogSort(order) {
+        this.backlogSortOrder = order;
+        this.elements.backlogFifoBtn.classList.toggle('active', order === 'fifo');
+        this.elements.backlogLifoBtn.classList.toggle('active', order === 'lifo');
+        this.renderBacklogList();
+    }
+
+    handleBacklogAdd() {
+        const raw = this.elements.backlogAddInput.value.trim();
+        if (!raw) return;
+
+        const { content, labels, urls } = this.parseQuickInput(raw);
+        if (!content) return;
+
+        const backlog = this.retrieveBacklogData();
+        backlog.push({
+            id: this.generateUniqueIdentifier(),
+            content,
+            labels,
+            urls,
+            createdAt: new Date().toISOString()
+        });
+        this.persistBacklogData(backlog);
+        this.elements.backlogAddInput.value = '';
+        this.renderBacklogList();
+    }
+
+    moveBacklogTaskToQuadrant(taskId, quadrant) {
+        const backlog = this.retrieveBacklogData();
+        const taskIndex = backlog.findIndex(t => t.id === taskId);
+        if (taskIndex === -1) return;
+
+        const task = backlog[taskIndex];
+        backlog.splice(taskIndex, 1);
+        this.persistBacklogData(backlog);
+
+        // Add to main task store
+        const dataStore = this.retrieveStoredData();
+        dataStore.activeTasks.push({
+            id: task.id,
+            content: task.content,
+            quadrant,
+            labels: task.labels,
+            urls: task.urls,
+            status: 'todo',
+            createdAt: task.createdAt
+        });
+        this.persistDataToStorage(dataStore);
+        this.renderBacklogList();
+    }
+
+    deleteBacklogTask(taskId) {
+        const backlog = this.retrieveBacklogData();
+        this.persistBacklogData(backlog.filter(t => t.id !== taskId));
+        this.collapsedTasks.delete(taskId);
+        this.saveCollapsedState();
+        this.renderBacklogList();
+    }
+
+    toggleBacklogCollapse(taskId) {
+        if (this.collapsedTasks.has(taskId)) {
+            this.collapsedTasks.delete(taskId);
+        } else {
+            this.collapsedTasks.add(taskId);
+        }
+        this.saveCollapsedState();
+        const card = document.querySelector(`.backlog-task-card[data-backlog-id="${taskId}"]`);
+        if (card) {
+            card.classList.toggle('collapsed', this.collapsedTasks.has(taskId));
+            const btn = card.querySelector('.collapse-btn');
+            if (btn) btn.textContent = this.collapsedTasks.has(taskId) ? '▸' : '▾';
+        }
+    }
+
+    enterBacklogInlineEdit(taskId) {
+        if (this.inlineEditingBacklogId) {
+            this.saveBacklogInlineEdit(this.inlineEditingBacklogId);
+        }
+        this.inlineEditingBacklogId = taskId;
+        const backlog = this.retrieveBacklogData();
+        const task = backlog.find(t => t.id === taskId);
+        if (!task) return;
+
+        const card = document.querySelector(`.backlog-task-card[data-backlog-id="${taskId}"]`);
+        if (!card) return;
+
+        // Uncollapse if collapsed
+        if (this.collapsedTasks.has(taskId)) {
+            this.toggleBacklogCollapse(taskId);
+        }
+
+        // Build raw text with tags & urls
+        let raw = task.content;
+        if (task.labels && task.labels.length) raw += ' ' + task.labels.map(l => '#' + l).join(' ');
+        if (task.urls && task.urls.length) raw += ' ' + task.urls.join(' ');
+
+        const textEl = card.querySelector('.backlog-card-text');
+        if (!textEl) return;
+        textEl.setAttribute('contenteditable', 'true');
+        textEl.classList.add('editing');
+        textEl.textContent = raw;
+        textEl.focus();
+
+        // Select all text
+        const range = document.createRange();
+        range.selectNodeContents(textEl);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+
+        textEl.addEventListener('keydown', (evt) => {
+            if (evt.key === 'Enter') {
+                evt.preventDefault();
+                this.saveBacklogInlineEdit(taskId);
+            }
+            if (evt.key === 'Escape') {
+                evt.preventDefault();
+                this.inlineEditingBacklogId = null;
+                this.renderBacklogList();
+            }
+        });
+    }
+
+    saveBacklogInlineEdit(taskId) {
+        if (this.inlineEditingBacklogId !== taskId) return;
+        this.inlineEditingBacklogId = null;
+
+        const card = document.querySelector(`.backlog-task-card[data-backlog-id="${taskId}"]`);
+        if (!card) return;
+        const textEl = card.querySelector('.backlog-card-text');
+        if (!textEl) return;
+
+        const rawText = textEl.textContent.trim();
+        if (!rawText) return;
+
+        const { content, labels, urls } = this.parseQuickInput(rawText);
+        const backlog = this.retrieveBacklogData();
+        const task = backlog.find(t => t.id === taskId);
+        if (task) {
+            task.content = content;
+            task.labels = labels;
+            task.urls = urls;
+            this.persistBacklogData(backlog);
+        }
+        this.renderBacklogList();
+    }
+
+    promptDeleteBacklog(taskId) {
+        this.pendingDeleteTaskId = taskId;
+        this.pendingDeleteSource = 'backlog';
+        // Hide archive option for backlog tasks (not applicable)
+        this.elements.confirmArchiveBtn.style.display = 'none';
+        this.elements.deleteConfirmOverlay.classList.remove('hidden');
+    }
+
+    renderBacklogList() {
+        const backlog = this.retrieveBacklogData();
+
+        // Sort according to current order
+        const sorted = [...backlog];
+        if (this.backlogSortOrder === 'lifo') {
+            sorted.reverse();
+        }
+
+        if (sorted.length === 0) {
+            this.elements.backlogList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 2rem; font-family: Space Mono, monospace;">No backlog tasks. Add one above!</p>';
+            return;
+        }
+
+        this.elements.backlogList.innerHTML = sorted.map(task => {
+            const isCollapsed = this.collapsedTasks.has(task.id);
+            const collapseIcon = isCollapsed ? '▸' : '▾';
+            const collapsedClass = isCollapsed ? ' collapsed' : '';
+
+            const tagsHTML = task.labels && task.labels.length > 0
+                ? `<div class="task-tags">${task.labels.map(l => `<span class="task-tag">${this.escapeHTML(l)}</span>`).join('')}</div>`
+                : '';
+
+            const linksHTML = task.urls && task.urls.length > 0
+                ? `<div class="task-links">${task.urls.map(u => `<a href="${this.escapeHTML(u)}" target="_blank" rel="noopener" class="task-link-pill">${this.escapeHTML(new URL(u).hostname)}</a>`).join('')}</div>`
+                : '';
+
+            const date = new Date(task.createdAt).toLocaleDateString();
+            const collapsedSummary = isCollapsed
+                ? `<span class="collapsed-summary">${this.escapeHTML(task.content.substring(0, 50))}${task.content.length > 50 ? '...' : ''}</span>`
+                : '';
+
+            return `
+                <div class="backlog-task-card task-card${collapsedClass}" data-backlog-id="${task.id}" draggable="true">
+                    <div class="task-header">
+                        <button class="collapse-btn" title="Collapse/Expand">${collapseIcon}</button>
+                        ${collapsedSummary}
+                    </div>
+                    <div class="backlog-card-text task-text">${this.escapeHTML(task.content)}</div>
+                    ${tagsHTML}
+                    ${linksHTML}
+                    <div class="task-controls">
+                        <span class="backlog-task-date">${date}</span>
+                        <button class="task-btn-delete" title="Delete">✕</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Wire up events
+        this.elements.backlogList.querySelectorAll('.backlog-task-card').forEach(el => {
+            const taskId = el.dataset.backlogId;
+
+            // Drag
+            el.addEventListener('dragstart', (evt) => {
+                evt.dataTransfer.setData('text/plain', taskId);
+                el.classList.add('dragging');
+            });
+            el.addEventListener('dragend', () => {
+                el.classList.remove('dragging');
+                document.querySelectorAll('.backlog-bucket').forEach(b => b.classList.remove('drag-over'));
+            });
+
+            // Collapse
+            el.querySelector('.collapse-btn')?.addEventListener('click', (evt) => {
+                evt.stopPropagation();
+                this.toggleBacklogCollapse(taskId);
+            });
+
+            // Click to edit
+            const textEl = el.querySelector('.backlog-card-text');
+            textEl?.addEventListener('click', (evt) => {
+                evt.stopPropagation();
+                this.enterBacklogInlineEdit(taskId);
+            });
+
+            // Delete
+            el.querySelector('.task-btn-delete')?.addEventListener('click', (evt) => {
+                evt.stopPropagation();
+                this.promptDeleteBacklog(taskId);
+            });
+        });
     }
 
     updateTagFilterDisplay() {

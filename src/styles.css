@@ -80,6 +80,16 @@ body {
     gap: 0.25rem;
 }
 
+.logo-link {
+    text-decoration: none;
+    cursor: pointer;
+    display: block;
+}
+
+.logo-link:hover .logo {
+    text-shadow: 4px 4px 0px rgba(0,0,0,0.3), 0 0 20px rgba(255,255,255,0.15);
+}
+
 .logo {
     font-family: 'Space Mono', monospace;
     font-size: 2.5rem;
@@ -87,6 +97,7 @@ body {
     color: #FFFFFF;
     letter-spacing: 0.1em;
     text-shadow: 4px 4px 0px rgba(0,0,0,0.2);
+    transition: text-shadow 0.2s ease;
 }
 
 .tagline {
@@ -628,6 +639,275 @@ body {
     gap: 1.5rem;
 }
 
+/* === BACKLOG VIEW === */
+.backlog-view {
+    padding: 2rem;
+    min-height: 100vh;
+}
+
+.backlog-view.hidden {
+    display: none;
+}
+
+.backlog-header {
+    max-width: 1600px;
+    margin: 0 auto 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 1.5rem;
+    border-bottom: var(--border-thick);
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.backlog-header h2 {
+    font-family: 'Space Mono', monospace;
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+}
+
+.backlog-subtitle {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+.backlog-header-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.backlog-sort {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.backlog-sort-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.backlog-sort-btn {
+    font-size: 0.75rem !important;
+    padding: 0.5rem 0.875rem !important;
+}
+
+.backlog-sort-btn.active {
+    background: var(--text-primary) !important;
+    color: var(--primary-bg) !important;
+}
+
+/* Quadrant drop buckets */
+.backlog-buckets {
+    max-width: 1600px;
+    margin: 0 auto 2rem;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+}
+
+.backlog-bucket {
+    border: 3px dashed var(--text-secondary);
+    padding: 1.25rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.375rem;
+    transition: all 0.2s ease;
+    min-height: 100px;
+    justify-content: center;
+}
+
+.backlog-bucket.drag-over {
+    border-color: var(--accent-electric);
+    border-style: solid;
+    background: rgba(0, 102, 255, 0.08);
+    box-shadow: var(--shadow-brutal-sm);
+    transform: translateY(-2px);
+}
+
+.bucket-icon {
+    font-size: 1.75rem;
+}
+
+.bucket-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.bucket-hint {
+    font-size: 0.625rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Backlog add bar */
+.backlog-add-bar {
+    max-width: 1600px;
+    margin: 0 auto 1.5rem;
+}
+
+.backlog-add-input {
+    font-family: 'Work Sans', sans-serif;
+    font-size: 1rem;
+    width: 100%;
+    padding: 0.875rem 1rem;
+    border: var(--border-medium);
+    background: var(--secondary-bg);
+    color: var(--text-primary);
+    transition: all 0.15s ease;
+}
+
+.backlog-add-input::placeholder {
+    color: var(--text-secondary);
+}
+
+.backlog-add-input:focus {
+    outline: none;
+    border-color: var(--accent-electric);
+    box-shadow: var(--shadow-brutal-sm);
+}
+
+/* Backlog list */
+.backlog-list {
+    max-width: 1600px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.backlog-task,
+.backlog-task-card {
+    background: var(--primary-bg);
+    border: var(--border-medium);
+    padding: 1rem 1.25rem;
+    box-shadow: var(--shadow-brutal-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    cursor: grab;
+    transition: all 0.15s ease;
+    animation: slideIn 0.3s ease;
+}
+
+.backlog-task-card:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 5px 5px 0px var(--text-primary);
+}
+
+.backlog-task-card:active {
+    cursor: grabbing;
+}
+
+.backlog-task-card.dragging {
+    opacity: 0.4;
+    border-style: dashed;
+}
+
+.backlog-task-card.collapsed .task-text,
+.backlog-task-card.collapsed .task-tags,
+.backlog-task-card.collapsed .task-links,
+.backlog-task-card.collapsed .task-controls {
+    display: none;
+}
+
+.backlog-task-card .task-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.backlog-task-card .backlog-card-text {
+    font-size: 1rem;
+    line-height: 1.4;
+    word-wrap: break-word;
+    cursor: text;
+    padding: 0.25rem;
+    border-radius: 2px;
+    transition: background 0.15s ease;
+}
+
+.backlog-task-card .backlog-card-text:hover {
+    background: var(--secondary-bg);
+}
+
+.backlog-task-card .backlog-card-text.editing {
+    background: var(--secondary-bg);
+    border: var(--border-thin);
+    outline: none;
+    padding: 0.5rem;
+}
+
+.backlog-task-card .task-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 0.25rem;
+}
+
+.backlog-task-content {
+    flex: 1;
+    font-size: 1rem;
+    line-height: 1.4;
+    word-wrap: break-word;
+}
+
+.backlog-task-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+}
+
+.backlog-task-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+}
+
+.backlog-task-date {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.625rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.backlog-task-delete {
+    font-size: 1rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    transition: transform 0.1s ease;
+    color: var(--text-primary);
+}
+
+.backlog-task-delete:hover {
+    transform: scale(1.2);
+    color: var(--accent-hot);
+}
+
+@media (max-width: 768px) {
+    .backlog-buckets {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
 /* === MODAL === */
 .modal-overlay {
     position: fixed;
@@ -1094,4 +1374,122 @@ body {
     color: #FFFFFF;
     border-color: var(--accent-electric);
     box-shadow: var(--shadow-brutal-xs);
+}
+
+/* === ONBOARDING TOUR === */
+.tour-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3000;
+    padding: 2rem;
+    animation: fadeIn 0.3s ease;
+}
+
+.tour-overlay.hidden {
+    display: none;
+}
+
+.tour-dialog {
+    background: var(--primary-bg);
+    border: var(--border-thick);
+    box-shadow: var(--shadow-brutal-lg);
+    max-width: 480px;
+    width: 100%;
+    animation: slideUp 0.4s ease;
+}
+
+.tour-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: var(--border-medium);
+    background: var(--accent-cyber);
+}
+
+.tour-header h2 {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #000;
+}
+
+.tour-body {
+    padding: 1.5rem;
+}
+
+.tour-body > p {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-bottom: 1.25rem;
+}
+
+.tour-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.tour-step {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    padding: 0.75rem 1rem;
+    border: var(--border-thin);
+    background: var(--secondary-bg);
+}
+
+.tour-step-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.tour-step strong {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    display: block;
+    margin-bottom: 0.2rem;
+}
+
+.tour-step p {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.tour-step code {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    background: var(--primary-bg);
+    padding: 0.1rem 0.35rem;
+    border: var(--border-thin);
+}
+
+.tour-cta {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.tour-footer {
+    padding: 1rem 1.5rem;
+    border-top: var(--border-medium);
+    display: flex;
+    justify-content: center;
+}
+
+.tour-dismiss-btn {
+    font-size: 1rem !important;
+    padding: 0.875rem 3rem !important;
+    background: var(--accent-hot);
+    color: #FFFFFF;
+    border-color: var(--accent-hot) !important;
 }
