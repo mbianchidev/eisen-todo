@@ -6,6 +6,10 @@ class EisenMatrixController {
         this.currentTheme = 'light';
         this.activeFilter = 'all';
         this.editingTaskId = null;
+        this.directQuadrant = null; // set when creating from a quadrant's + button
+        this.isUrgent = false;
+        this.isImportant = false;
+        this.draggedTaskId = null;
         
         this.initializeApplication();
     }
@@ -35,7 +39,14 @@ class EisenMatrixController {
             taskTextInput: document.getElementById('taskText'),
             taskQuadrantSelect: document.getElementById('taskQuadrant'),
             taskTagsInput: document.getElementById('taskTags'),
-            taskLinksInput: document.getElementById('taskLinks')
+            taskLinksInput: document.getElementById('taskLinks'),
+            quadrantSelectGroup: document.getElementById('quadrantSelectGroup'),
+            urgencyToggleGroup: document.getElementById('urgencyToggleGroup'),
+            urgentYes: document.getElementById('urgentYes'),
+            urgentNo: document.getElementById('urgentNo'),
+            importantYes: document.getElementById('importantYes'),
+            importantNo: document.getElementById('importantNo'),
+            quadrantPreview: document.getElementById('quadrantPreview')
         };
     }
 
@@ -53,6 +64,140 @@ class EisenMatrixController {
                 this.closeTaskModal();
             }
         });
+
+        // Per-quadrant add buttons
+        document.querySelectorAll('.quadrant-add-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.openTaskCreationModalForQuadrant(btn.dataset.addQuadrant);
+            });
+        });
+
+        // Urgency / importance toggle buttons
+        this.elements.urgentYes.addEventListener('click', () => this.setUrgent(true));
+        this.elements.urgentNo.addEventListener('click', () => this.setUrgent(false));
+        this.elements.importantYes.addEventListener('click', () => this.setImportant(true));
+        this.elements.importantNo.addEventListener('click', () => this.setImportant(false));
+
+        // Drag-and-drop on task zones
+        document.querySelectorAll('.task-zone').forEach(zone => {
+            zone.addEventListener('dragover', (evt) => {
+                evt.preventDefault();
+                zone.classList.add('drag-over');
+            });
+            zone.addEventListener('dragleave', () => {
+                zone.classList.remove('drag-over');
+            });
+            zone.addEventListener('drop', (evt) => {
+                evt.preventDefault();
+                zone.classList.remove('drag-over');
+                const taskId = evt.dataTransfer.getData('text/plain');
+                const targetQuadrant = zone.dataset.zone;
+                if (taskId && targetQuadrant) {
+                    this.moveTaskToQuadrant(taskId, targetQuadrant);
+                }
+            });
+        });
+
+        // Inline quick-add inputs
+        document.querySelectorAll('.quick-add-input').forEach(input => {
+            input.addEventListener('keydown', (evt) => {
+                if (evt.key === 'Enter') {
+                    evt.preventDefault();
+                    this.handleQuickAdd(input);
+                }
+            });
+        });
+    }
+
+    // --- Quick-add parser ---
+
+    parseQuickInput(rawText) {
+        // Extract #tags
+        const tagMatches = rawText.match(/#(\w[\w-]*)/g) || [];
+        const labels = tagMatches.map(t => t.substring(1));
+
+        // Extract https:// URLs
+        const urlMatches = rawText.match(/https?:\/\/[^\s,]+/g) || [];
+
+        // Remove tags and URLs to get the task content
+        let content = rawText;
+        tagMatches.forEach(t => { content = content.replace(t, ''); });
+        urlMatches.forEach(u => { content = content.replace(u, ''); });
+        content = content.replace(/\s+/g, ' ').trim();
+
+        return { content, labels, urls: urlMatches };
+    }
+
+    handleQuickAdd(inputElement) {
+        const raw = inputElement.value.trim();
+        if (!raw) return;
+
+        const { content, labels, urls } = this.parseQuickInput(raw);
+        if (!content) return;
+
+        const quadrant = inputElement.dataset.quadrant;
+        const dataStore = this.retrieveStoredData();
+
+        const newTask = {
+            id: this.generateUniqueIdentifier(),
+            content,
+            quadrant,
+            labels,
+            urls,
+            status: 'todo',
+            createdAt: new Date().toISOString()
+        };
+        dataStore.activeTasks.push(newTask);
+        this.persistDataToStorage(dataStore);
+
+        inputElement.value = '';
+        this.renderApplicationState();
+    }
+
+    // --- Urgent / Important toggle helpers ---
+
+    setUrgent(value) {
+        this.isUrgent = value;
+        this.elements.urgentYes.classList.toggle('active', value);
+        this.elements.urgentNo.classList.toggle('active', !value);
+        this.updateQuadrantPreview();
+    }
+
+    setImportant(value) {
+        this.isImportant = value;
+        this.elements.importantYes.classList.toggle('active', value);
+        this.elements.importantNo.classList.toggle('active', !value);
+        this.updateQuadrantPreview();
+    }
+
+    deriveQuadrant(urgent, important) {
+        if (urgent && important) return 'urgent-important';
+        if (!urgent && important) return 'not-urgent-important';
+        if (urgent && !important) return 'urgent-not-important';
+        return 'not-urgent-not-important';
+    }
+
+    updateQuadrantPreview() {
+        const q = this.deriveQuadrant(this.isUrgent, this.isImportant);
+        const meta = {
+            'urgent-important': { icon: '🔥', label: '→ DO FIRST' },
+            'not-urgent-important': { icon: '📅', label: '→ SCHEDULE' },
+            'urgent-not-important': { icon: '👥', label: '→ DELEGATE' },
+            'not-urgent-not-important': { icon: '🗑️', label: '→ ELIMINATE' }
+        };
+        this.elements.quadrantPreview.querySelector('.preview-icon').textContent = meta[q].icon;
+        this.elements.quadrantPreview.querySelector('.preview-label').textContent = meta[q].label;
+    }
+
+    // --- Drag-and-drop ---
+
+    moveTaskToQuadrant(taskId, targetQuadrant) {
+        const dataStore = this.retrieveStoredData();
+        const task = dataStore.activeTasks.find(t => t.id === taskId);
+        if (!task || task.quadrant === targetQuadrant) return;
+        task.quadrant = targetQuadrant;
+        this.persistDataToStorage(dataStore);
+        this.renderApplicationState();
     }
 
     retrieveStoredData() {
@@ -96,8 +241,25 @@ class EisenMatrixController {
 
     openTaskCreationModal() {
         this.editingTaskId = null;
+        this.directQuadrant = null;
         this.elements.modalTitle.textContent = 'CREATE NEW TASK';
         this.elements.taskForm.reset();
+        // Show urgency toggles, hide quadrant select
+        this.elements.quadrantSelectGroup.classList.add('hidden');
+        this.elements.urgencyToggleGroup.classList.remove('hidden');
+        this.setUrgent(false);
+        this.setImportant(false);
+        this.elements.modalOverlay.classList.remove('hidden');
+    }
+
+    openTaskCreationModalForQuadrant(quadrant) {
+        this.editingTaskId = null;
+        this.directQuadrant = quadrant;
+        this.elements.modalTitle.textContent = 'ADD TASK';
+        this.elements.taskForm.reset();
+        // Hide both quadrant choosers – quadrant is predetermined
+        this.elements.quadrantSelectGroup.classList.add('hidden');
+        this.elements.urgencyToggleGroup.classList.add('hidden');
         this.elements.modalOverlay.classList.remove('hidden');
     }
 
@@ -108,11 +270,15 @@ class EisenMatrixController {
         if (!taskToEdit) return;
 
         this.editingTaskId = taskId;
+        this.directQuadrant = null;
         this.elements.modalTitle.textContent = 'EDIT TASK';
         this.elements.taskTextInput.value = taskToEdit.content;
         this.elements.taskQuadrantSelect.value = taskToEdit.quadrant;
         this.elements.taskTagsInput.value = taskToEdit.labels.join(', ');
         this.elements.taskLinksInput.value = taskToEdit.urls.join(', ');
+        // When editing, show the quadrant dropdown, hide toggles
+        this.elements.quadrantSelectGroup.classList.remove('hidden');
+        this.elements.urgencyToggleGroup.classList.add('hidden');
         
         this.elements.modalOverlay.classList.remove('hidden');
     }
@@ -121,13 +287,27 @@ class EisenMatrixController {
         this.elements.modalOverlay.classList.add('hidden');
         this.elements.taskForm.reset();
         this.editingTaskId = null;
+        this.directQuadrant = null;
     }
 
     handleTaskSubmission(evt) {
         evt.preventDefault();
         
         const taskContent = this.elements.taskTextInput.value.trim();
-        const taskQuadrant = this.elements.taskQuadrantSelect.value;
+
+        // Determine quadrant based on context
+        let taskQuadrant;
+        if (this.editingTaskId) {
+            // Editing: use dropdown
+            taskQuadrant = this.elements.taskQuadrantSelect.value;
+        } else if (this.directQuadrant) {
+            // Created from quadrant + button
+            taskQuadrant = this.directQuadrant;
+        } else {
+            // Created from NEW TASK button: derive from toggles
+            taskQuadrant = this.deriveQuadrant(this.isUrgent, this.isImportant);
+        }
+
         const taskLabels = this.elements.taskTagsInput.value
             .split(',')
             .map(tag => tag.trim())
@@ -193,11 +373,22 @@ class EisenMatrixController {
         };
 
         const nextStatus = statusProgression[taskToUpdate.status];
+
+        // Enforce max 1 in-progress in the urgent-important quadrant
+        if (nextStatus === 'in-progress' && taskToUpdate.quadrant === 'urgent-important') {
+            const alreadyInProgress = dataStore.activeTasks.some(
+                t => t.id !== taskId && t.quadrant === 'urgent-important' && t.status === 'in-progress'
+            );
+            if (alreadyInProgress) {
+                alert('Only one task can be in progress in the "Do First" quadrant. Complete or revert the current one first.');
+                return;
+            }
+        }
         
         if (nextStatus === 'done') {
             taskToUpdate.status = 'done';
             taskToUpdate.completedAt = new Date().toISOString();
-            dataStore.completedTasks.push(taskToUpdate);
+            dataStore.completedTasks.push({ ...taskToUpdate });
             dataStore.activeTasks = dataStore.activeTasks.filter(t => t.id !== taskId);
         } else {
             taskToUpdate.status = nextStatus;
@@ -301,6 +492,15 @@ class EisenMatrixController {
             zone.querySelectorAll('.task-card').forEach(card => {
                 const taskId = card.dataset.taskId;
                 
+                // Drag events
+                card.addEventListener('dragstart', (evt) => {
+                    evt.dataTransfer.setData('text/plain', taskId);
+                    card.classList.add('dragging');
+                });
+                card.addEventListener('dragend', () => {
+                    card.classList.remove('dragging');
+                });
+
                 card.querySelector('.btn-edit')?.addEventListener('click', () => this.openTaskEditModal(taskId));
                 card.querySelector('.btn-delete')?.addEventListener('click', () => this.removeTaskPermanently(taskId));
                 card.querySelector('.btn-advance')?.addEventListener('click', () => this.advanceTaskStatus(taskId));
@@ -310,11 +510,8 @@ class EisenMatrixController {
     }
 
     generateTaskCardHTML(task) {
-        const statusLabels = {
-            'todo': 'TODO',
-            'in-progress': 'IN PROGRESS',
-            'done': 'DONE'
-        };
+        const statusConfig = this.getStatusConfig(task.quadrant);
+        const statusLabel = statusConfig[task.status] || task.status.toUpperCase();
 
         const statusClasses = {
             'todo': 'status-todo',
@@ -330,13 +527,15 @@ class EisenMatrixController {
             ? `<div class="task-links">${task.urls.map(url => `<a href="${this.escapeHTML(url)}" class="task-link" target="_blank" rel="noopener noreferrer">${this.escapeHTML(url)}</a>`).join('')}</div>`
             : '';
 
-        const advanceButtonText = task.status === 'todo' ? 'START' : 'COMPLETE';
+        const advanceButtonText = task.status === 'todo'
+            ? statusConfig.startAction
+            : statusConfig.completeAction;
         const showRevert = task.status === 'in-progress';
 
         return `
-            <div class="task-card" data-task-id="${task.id}">
+            <div class="task-card" data-task-id="${task.id}" draggable="true">
                 <div class="task-header">
-                    <span class="task-status-badge ${statusClasses[task.status]}">${statusLabels[task.status]}</span>
+                    <span class="task-status-badge ${statusClasses[task.status]}">${statusLabel}</span>
                     <div class="task-actions">
                         <button class="task-action-btn btn-edit" title="Edit">✎</button>
                         <button class="task-action-btn btn-delete" title="Delete">✕</button>
@@ -351,6 +550,40 @@ class EisenMatrixController {
                 </div>
             </div>
         `;
+    }
+
+    getStatusConfig(quadrant) {
+        const configs = {
+            'urgent-important': {
+                'todo': 'TODO',
+                'in-progress': 'IN PROGRESS',
+                'done': 'DONE',
+                startAction: 'START',
+                completeAction: 'COMPLETE'
+            },
+            'not-urgent-important': {
+                'todo': 'TODO',
+                'in-progress': 'SCHEDULING',
+                'done': 'SCHEDULED',
+                startAction: 'SCHEDULE',
+                completeAction: 'SCHEDULED'
+            },
+            'urgent-not-important': {
+                'todo': 'TODO',
+                'in-progress': 'DELEGATING',
+                'done': 'DELEGATED',
+                startAction: 'DELEGATE',
+                completeAction: 'DELEGATED'
+            },
+            'not-urgent-not-important': {
+                'todo': 'TODO',
+                'in-progress': 'ARCHIVING',
+                'done': 'ARCHIVED',
+                startAction: 'ARCHIVE',
+                completeAction: 'ARCHIVED'
+            }
+        };
+        return configs[quadrant] || configs['urgent-important'];
     }
 
     populateArchiveDisplay() {
@@ -382,6 +615,9 @@ class EisenMatrixController {
             'not-urgent-not-important': '🗑️ ELIMINATE'
         };
 
+        const statusConfig = this.getStatusConfig(task.quadrant);
+        const completedLabel = statusConfig['done'] || 'COMPLETED';
+
         const tagsHTML = task.labels.length > 0
             ? `<div class="task-tags">${task.labels.map(label => `<span class="task-tag">${this.escapeHTML(label)}</span>`).join('')}</div>`
             : '';
@@ -395,7 +631,7 @@ class EisenMatrixController {
         return `
             <div class="task-card" data-task-id="${task.id}">
                 <div class="task-header">
-                    <span class="task-status-badge status-done">COMPLETED</span>
+                    <span class="task-status-badge status-done">${completedLabel}</span>
                     <div class="task-actions">
                         <button class="task-action-btn btn-delete" title="Delete">✕</button>
                     </div>

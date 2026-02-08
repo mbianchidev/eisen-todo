@@ -701,3 +701,171 @@ body {
 .hidden {
     display: none !important;
 }
+
+/* === QUADRANT ADD BUTTON === */
+.quadrant-header {
+    position: relative;
+}
+
+.quadrant-add-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 36px;
+    height: 36px;
+    font-family: 'Space Mono', monospace;
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+    border: var(--border-medium);
+    background: var(--primary-bg);
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    box-shadow: var(--shadow-brutal-xs);
+}
+
+.quadrant-add-btn:hover {
+    background: var(--text-primary);
+    color: var(--primary-bg);
+    transform: translate(1px, 1px);
+    box-shadow: none;
+}
+
+/* === DRAG AND DROP === */
+.task-card[draggable="true"] {
+    cursor: grab;
+}
+
+.task-card[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+.task-card.dragging {
+    opacity: 0.4;
+    border-style: dashed;
+}
+
+.task-zone.drag-over {
+    background: rgba(0, 102, 255, 0.08);
+    outline: 3px dashed var(--accent-electric);
+    outline-offset: -3px;
+    min-height: 120px;
+}
+
+/* === URGENCY / IMPORTANCE TOGGLES === */
+.quadrant-select-group.hidden,
+.urgency-toggle-group.hidden {
+    display: none !important;
+}
+
+.urgency-toggle-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.toggle-question {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border: var(--border-thin);
+    background: var(--secondary-bg);
+}
+
+.toggle-question label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0;
+}
+
+.toggle-buttons {
+    display: flex;
+    gap: 0;
+}
+
+.toggle-btn {
+    font-family: 'Work Sans', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.5rem 1.25rem;
+    border: var(--border-thin);
+    background: var(--primary-bg);
+    color: var(--text-primary);
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.15s ease;
+}
+
+.toggle-btn + .toggle-btn {
+    border-left: none;
+}
+
+.toggle-btn.active {
+    background: var(--text-primary);
+    color: var(--primary-bg);
+    box-shadow: var(--shadow-brutal-xs);
+}
+
+.toggle-btn:hover:not(.active) {
+    background: var(--secondary-bg);
+}
+
+.quadrant-preview {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border: var(--border-thin);
+    background: var(--accent-acid);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.preview-icon {
+    font-size: 1.25rem;
+}
+
+.preview-label {
+    color: #000000;
+}
+
+/* === QUICK-ADD BAR === */
+.quick-add-bar {
+    padding: 0.75rem 1rem;
+    border-top: var(--border-thin);
+    background: var(--primary-bg);
+}
+
+.quick-add-input {
+    font-family: 'Work Sans', sans-serif;
+    font-size: 0.875rem;
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    border: var(--border-thin);
+    background: var(--secondary-bg);
+    color: var(--text-primary);
+    transition: all 0.15s ease;
+}
+
+.quick-add-input::placeholder {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.quick-add-input:focus {
+    outline: none;
+    border-color: var(--accent-electric);
+    box-shadow: var(--shadow-brutal-xs);
+}

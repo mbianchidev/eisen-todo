@@ -1,1 +1,3 @@
 .github-summary.md
+node_modules/
+.vscode/

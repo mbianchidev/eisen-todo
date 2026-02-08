@@ -1,0 +1,11 @@
+{
+  "name": "eisen-todo",
+  "version": "1.0.0",
+  "description": "Eisenhower Matrix Todo App",
+  "scripts": {
+    "start": "serve src"
+  },
+  "dependencies": {
+    "serve": "^14.2.5"
+  }
+}
