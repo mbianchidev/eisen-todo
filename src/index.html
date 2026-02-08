@@ -29,6 +29,9 @@
             <button class="ctrl-btn" id="showArchiveBtn">
                 <span>ARCHIVE</span>
             </button>
+            <button class="ctrl-btn" id="showProfileBtn">
+                <span>⚙ SETTINGS</span>
+            </button>
         </div>
     </header>
 
@@ -37,6 +40,7 @@
         <div class="search-bar">
             <input type="text" class="search-input" id="searchInput" placeholder="Search tasks..." />
         </div>
+        <div class="task-counter" id="mainTaskCounter"></div>
         <button class="ctrl-btn collapse-all-btn" id="collapseAllBtn" title="Collapse/Expand all tasks">
             <span id="collapseAllIcon">▾</span> COLLAPSE
         </button>
@@ -53,7 +57,7 @@
             <section class="quadrant q-urgent-important" data-quadrant="urgent-important">
                 <div class="quadrant-header">
                     <span class="quadrant-icon">🔥</span>
-                    <h2>DO FIRST</h2>
+                    <h2>DO FIRST <span class="quadrant-count" data-count-quadrant="urgent-important">0</span></h2>
                     <p class="quadrant-subtitle">Urgent + Important</p>
                 </div>
                 <div class="task-zone" data-zone="urgent-important"></div>
@@ -66,7 +70,7 @@
             <section class="quadrant q-not-urgent-important" data-quadrant="not-urgent-important">
                 <div class="quadrant-header">
                     <span class="quadrant-icon">📅</span>
-                    <h2>SCHEDULE</h2>
+                    <h2>SCHEDULE <span class="quadrant-count" data-count-quadrant="not-urgent-important">0</span></h2>
                     <p class="quadrant-subtitle">Not Urgent + Important</p>
                 </div>
                 <div class="task-zone" data-zone="not-urgent-important"></div>
@@ -79,7 +83,7 @@
             <section class="quadrant q-urgent-not-important" data-quadrant="urgent-not-important">
                 <div class="quadrant-header">
                     <span class="quadrant-icon">👥</span>
-                    <h2>DELEGATE</h2>
+                    <h2>DELEGATE <span class="quadrant-count" data-count-quadrant="urgent-not-important">0</span></h2>
                     <p class="quadrant-subtitle">Urgent + Not Important</p>
                 </div>
                 <div class="task-zone" data-zone="urgent-not-important"></div>
@@ -92,7 +96,7 @@
             <section class="quadrant q-not-urgent-not-important" data-quadrant="not-urgent-not-important">
                 <div class="quadrant-header">
                     <span class="quadrant-icon">🗑️</span>
-                    <h2>ELIMINATE</h2>
+                    <h2>ELIMINATE <span class="quadrant-count" data-count-quadrant="not-urgent-not-important">0</span></h2>
                     <p class="quadrant-subtitle">Not Urgent + Not Important</p>
                 </div>
                 <div class="task-zone" data-zone="not-urgent-not-important"></div>
@@ -114,6 +118,16 @@
                 <span>← BACK</span>
             </button>
         </div>
+        <div class="view-filter-strip">
+            <div class="search-bar">
+                <input type="text" class="search-input" id="archiveSearchInput" placeholder="Search archived tasks..." />
+            </div>
+            <div class="task-counter" id="archiveTaskCounter"></div>
+            <div class="filter-label">FILTER:</div>
+            <div class="tag-filter-container" id="archiveTagFilterContainer">
+                <button class="tag-filter active" data-filter="all">ALL</button>
+            </div>
+        </div>
         <div class="archive-list" id="archiveList"></div>
     </div>
 
@@ -133,6 +147,16 @@
                 <button class="ctrl-btn" id="closeBacklogBtn">
                     <span>← BACK</span>
                 </button>
+            </div>
+        </div>
+        <div class="view-filter-strip">
+            <div class="search-bar">
+                <input type="text" class="search-input" id="backlogSearchInput" placeholder="Search backlog tasks..." />
+            </div>
+            <div class="task-counter" id="backlogTaskCounter"></div>
+            <div class="filter-label">FILTER:</div>
+            <div class="tag-filter-container" id="backlogTagFilterContainer">
+                <button class="tag-filter active" data-filter="all">ALL</button>
             </div>
         </div>
 
@@ -244,6 +268,101 @@
                     <button class="btn-confirm-delete" id="confirmDeleteBtn">YES, DELETE</button>
                     <button class="btn-confirm-archive" id="confirmArchiveBtn">NO, ARCHIVE</button>
                     <button class="btn-confirm-cancel" id="confirmCancelBtn">NO, CANCEL</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile / Settings Page (Hidden by default) -->
+    <div class="profile-view hidden" id="profileView">
+        <div class="profile-header">
+            <div>
+                <h2>⚙ SETTINGS</h2>
+                <p class="profile-subtitle">Manage your data and preferences</p>
+            </div>
+            <button class="ctrl-btn" id="closeProfileBtn">
+                <span>← BACK</span>
+            </button>
+        </div>
+
+        <div class="profile-content">
+            <!-- Data Management -->
+            <section class="settings-section">
+                <h3 class="settings-section-title">DATA MANAGEMENT</h3>
+                <div class="settings-actions">
+                    <div class="settings-card">
+                        <div class="settings-card-info">
+                            <strong>Download your data</strong>
+                            <p>Export all tasks, backlog, and settings as a JSON file.</p>
+                        </div>
+                        <button class="ctrl-btn settings-btn" id="exportDataBtn">↓ EXPORT</button>
+                    </div>
+                    <div class="settings-card">
+                        <div class="settings-card-info">
+                            <strong>Import your data</strong>
+                            <p>Restore tasks from a previously exported JSON file.</p>
+                        </div>
+                        <button class="ctrl-btn settings-btn" id="importDataBtn">↑ IMPORT</button>
+                        <input type="file" id="importFileInput" accept=".json" class="hidden" />
+                    </div>
+                    <div class="settings-card settings-card-danger">
+                        <div class="settings-card-info">
+                            <strong>Delete all data</strong>
+                            <p>Permanently remove all tasks, backlog, archive, and settings. This cannot be undone.</p>
+                        </div>
+                        <button class="ctrl-btn settings-btn settings-btn-danger" id="deleteAllDataBtn">⚠ DELETE ALL</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Privacy & Cookie Policy -->
+            <section class="settings-section">
+                <h3 class="settings-section-title">PRIVACY & COOKIE POLICY</h3>
+                <div class="privacy-policy">
+                    <div class="privacy-point">
+                        <span class="privacy-icon">🔒</span>
+                        <div>
+                            <strong>Your data stays on your device</strong>
+                            <p>All tasks, settings, and preferences are stored exclusively in your browser's localStorage. Nothing is ever sent to any server.</p>
+                        </div>
+                    </div>
+                    <div class="privacy-point">
+                        <span class="privacy-icon">🍪</span>
+                        <div>
+                            <strong>No tracking cookies</strong>
+                            <p>EISENTODO does not use any cookies — tracking or otherwise. We do not collect analytics, fingerprints, or any form of telemetry.</p>
+                        </div>
+                    </div>
+                    <div class="privacy-point">
+                        <span class="privacy-icon">📢</span>
+                        <div>
+                            <strong>No remarketing</strong>
+                            <p>We do not engage in any form of remarketing, retargeting, or advertising. Your usage data is never shared with any third party.</p>
+                        </div>
+                    </div>
+                    <div class="privacy-point">
+                        <span class="privacy-icon">✊</span>
+                        <div>
+                            <strong>Your rights</strong>
+                            <p>You are always entitled to <strong>export</strong>, <strong>import</strong>, or <strong>delete</strong> your data at any time using the controls above. Full data sovereignty, no questions asked.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Delete All Confirmation Dialog -->
+    <div class="delete-confirm-overlay hidden" id="deleteAllConfirmOverlay">
+        <div class="delete-confirm-dialog">
+            <div class="delete-confirm-header">
+                <h3>⚠ DELETE ALL DATA</h3>
+            </div>
+            <div class="delete-confirm-body">
+                <p>This will permanently remove <strong>all tasks, backlog, archive, settings, and preferences</strong>. This action cannot be undone.</p>
+                <div class="delete-confirm-actions">
+                    <button class="btn-confirm-delete" id="confirmDeleteAllBtn">YES, DELETE EVERYTHING</button>
+                    <button class="btn-confirm-cancel" id="cancelDeleteAllBtn">NO, CANCEL</button>
                 </div>
             </div>
         </div>

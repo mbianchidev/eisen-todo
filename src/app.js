@@ -21,6 +21,10 @@ class EisenMatrixController {
         this.backlogSortOrder = 'fifo'; // 'fifo' or 'lifo'
         this.tourKey = 'eisen_tour_seen_v1';
         this.inlineEditingBacklogId = null; // currently inline-editing backlog task
+        this.backlogSearchQuery = '';
+        this.backlogActiveFilters = new Set();
+        this.archiveSearchQuery = '';
+        this.archiveActiveFilters = new Set();
         
         this.initializeApplication();
     }
@@ -76,7 +80,28 @@ class EisenMatrixController {
             backlogFifoBtn: document.getElementById('backlogFifoBtn'),
             backlogLifoBtn: document.getElementById('backlogLifoBtn'),
             tourOverlay: document.getElementById('tourOverlay'),
-            tourDismissBtn: document.getElementById('tourDismissBtn')
+            tourDismissBtn: document.getElementById('tourDismissBtn'),
+            // Profile / Settings
+            profileBtn: document.getElementById('showProfileBtn'),
+            profileView: document.getElementById('profileView'),
+            closeProfileBtn: document.getElementById('closeProfileBtn'),
+            exportDataBtn: document.getElementById('exportDataBtn'),
+            importDataBtn: document.getElementById('importDataBtn'),
+            importFileInput: document.getElementById('importFileInput'),
+            deleteAllDataBtn: document.getElementById('deleteAllDataBtn'),
+            deleteAllConfirmOverlay: document.getElementById('deleteAllConfirmOverlay'),
+            confirmDeleteAllBtn: document.getElementById('confirmDeleteAllBtn'),
+            cancelDeleteAllBtn: document.getElementById('cancelDeleteAllBtn'),
+            // Task counters
+            mainTaskCounter: document.getElementById('mainTaskCounter'),
+            // Backlog search/filter
+            backlogSearchInput: document.getElementById('backlogSearchInput'),
+            backlogTagFilterContainer: document.getElementById('backlogTagFilterContainer'),
+            backlogTaskCounter: document.getElementById('backlogTaskCounter'),
+            // Archive search/filter
+            archiveSearchInput: document.getElementById('archiveSearchInput'),
+            archiveTagFilterContainer: document.getElementById('archiveTagFilterContainer'),
+            archiveTaskCounter: document.getElementById('archiveTaskCounter')
         };
     }
 
@@ -119,6 +144,31 @@ class EisenMatrixController {
         this.elements.tourDismissBtn.addEventListener('click', () => this.dismissTour());
         this.elements.tourOverlay.addEventListener('click', (evt) => {
             if (evt.target === this.elements.tourOverlay) this.dismissTour();
+        });
+
+        // Profile / Settings
+        this.elements.profileBtn.addEventListener('click', () => this.displayProfileView());
+        this.elements.closeProfileBtn.addEventListener('click', () => this.hideProfileView());
+        this.elements.exportDataBtn.addEventListener('click', () => this.exportAllData());
+        this.elements.importDataBtn.addEventListener('click', () => this.elements.importFileInput.click());
+        this.elements.importFileInput.addEventListener('change', (evt) => this.importData(evt));
+        this.elements.deleteAllDataBtn.addEventListener('click', () => this.promptDeleteAll());
+        this.elements.confirmDeleteAllBtn.addEventListener('click', () => this.executeDeleteAll());
+        this.elements.cancelDeleteAllBtn.addEventListener('click', () => this.cancelDeleteAll());
+        this.elements.deleteAllConfirmOverlay.addEventListener('click', (evt) => {
+            if (evt.target === this.elements.deleteAllConfirmOverlay) this.cancelDeleteAll();
+        });
+
+        // Backlog search
+        this.elements.backlogSearchInput.addEventListener('input', () => {
+            this.backlogSearchQuery = this.elements.backlogSearchInput.value.trim().toLowerCase();
+            this.renderBacklogList();
+        });
+
+        // Archive search
+        this.elements.archiveSearchInput.addEventListener('input', () => {
+            this.archiveSearchQuery = this.elements.archiveSearchInput.value.trim().toLowerCase();
+            this.populateArchiveDisplay();
         });
 
         // Backlog sort buttons
@@ -581,6 +631,15 @@ class EisenMatrixController {
             return;
         }
 
+        if (this.pendingDeleteSource === 'archive') {
+            const dataStore = this.retrieveStoredData();
+            dataStore.completedTasks = dataStore.completedTasks.filter(t => t.id !== taskId);
+            this.persistDataToStorage(dataStore);
+            this.cancelDelete();
+            this.populateArchiveDisplay();
+            return;
+        }
+
         const dataStore = this.retrieveStoredData();
         dataStore.activeTasks = dataStore.activeTasks.filter(t => t.id !== taskId);
         dataStore.completedTasks = dataStore.completedTasks.filter(t => t.id !== taskId);
@@ -869,6 +928,7 @@ class EisenMatrixController {
     displayArchiveView() {
         this.elements.mainMatrix.classList.add('hidden');
         this.elements.backlogView.classList.add('hidden');
+        this.elements.profileView.classList.add('hidden');
         this.elements.archiveView.classList.remove('hidden');
         document.getElementById('filterStrip').classList.add('hidden');
         this.populateArchiveDisplay();
@@ -885,6 +945,7 @@ class EisenMatrixController {
     navigateHome() {
         this.elements.archiveView.classList.add('hidden');
         this.elements.backlogView.classList.add('hidden');
+        this.elements.profileView.classList.add('hidden');
         this.elements.mainMatrix.classList.remove('hidden');
         document.getElementById('filterStrip').classList.remove('hidden');
         this.renderApplicationState();
@@ -901,6 +962,121 @@ class EisenMatrixController {
     dismissTour() {
         this.elements.tourOverlay.classList.add('hidden');
         localStorage.setItem(this.tourKey, '1');
+    }
+
+    // --- Profile / Settings ---
+
+    displayProfileView() {
+        this.elements.mainMatrix.classList.add('hidden');
+        this.elements.archiveView.classList.add('hidden');
+        this.elements.backlogView.classList.add('hidden');
+        this.elements.profileView.classList.remove('hidden');
+        document.getElementById('filterStrip').classList.add('hidden');
+    }
+
+    hideProfileView() {
+        this.elements.profileView.classList.add('hidden');
+        this.elements.mainMatrix.classList.remove('hidden');
+        document.getElementById('filterStrip').classList.remove('hidden');
+        this.renderApplicationState();
+    }
+
+    exportAllData() {
+        const data = {
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            tasks: this.retrieveStoredData(),
+            backlog: this.retrieveBacklogData(),
+            theme: localStorage.getItem('eisen_theme') || 'light',
+            collapsed: [...this.collapsedTasks],
+            drafts: localStorage.getItem(this.draftsKey) || '{}'
+        };
+
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `eisentodo-export-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    importData(evt) {
+        const file = evt.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                
+                if (data.tasks) {
+                    this.persistDataToStorage(data.tasks);
+                }
+                if (data.backlog) {
+                    this.persistBacklogData(data.backlog);
+                }
+                if (data.theme) {
+                    localStorage.setItem('eisen_theme', data.theme);
+                    if (data.theme === 'dark') {
+                        document.documentElement.setAttribute('data-theme', 'dark');
+                        this.currentTheme = 'dark';
+                    } else {
+                        document.documentElement.removeAttribute('data-theme');
+                        this.currentTheme = 'light';
+                    }
+                }
+                if (data.collapsed) {
+                    this.collapsedTasks = new Set(data.collapsed);
+                    this.saveCollapsedState();
+                }
+                if (data.drafts) {
+                    localStorage.setItem(this.draftsKey, data.drafts);
+                }
+
+                alert('Data imported successfully!');
+                this.renderApplicationState();
+            } catch (err) {
+                alert('Failed to import data. Please check the file format.');
+            }
+        };
+        reader.readAsText(file);
+        // Reset input so same file can be imported again
+        evt.target.value = '';
+    }
+
+    promptDeleteAll() {
+        this.elements.deleteAllConfirmOverlay.classList.remove('hidden');
+    }
+
+    executeDeleteAll() {
+        localStorage.removeItem(this.storageKey);
+        localStorage.removeItem(this.backlogKey);
+        localStorage.removeItem(this.collapsedKey);
+        localStorage.removeItem(this.draftsKey);
+        localStorage.removeItem(this.tourKey);
+        localStorage.removeItem('eisen_theme');
+
+        // Reset in-memory state
+        this.collapsedTasks.clear();
+        this.activeFilters.clear();
+        this.searchQuery = '';
+        this.backlogSearchQuery = '';
+        this.backlogActiveFilters.clear();
+        this.archiveSearchQuery = '';
+        this.archiveActiveFilters.clear();
+        document.documentElement.removeAttribute('data-theme');
+        this.currentTheme = 'light';
+
+        this.cancelDeleteAll();
+        this.hideProfileView();
+        this.renderApplicationState();
+    }
+
+    cancelDeleteAll() {
+        this.elements.deleteAllConfirmOverlay.classList.add('hidden');
     }
 
     // --- Backlog ---
@@ -920,6 +1096,7 @@ class EisenMatrixController {
     displayBacklogView() {
         this.elements.mainMatrix.classList.add('hidden');
         this.elements.archiveView.classList.add('hidden');
+        this.elements.profileView.classList.add('hidden');
         this.elements.backlogView.classList.remove('hidden');
         document.getElementById('filterStrip').classList.add('hidden');
         this.renderBacklogList();
@@ -1090,18 +1267,39 @@ class EisenMatrixController {
     renderBacklogList() {
         const backlog = this.retrieveBacklogData();
 
+        // Build tag filter
+        this.updateBacklogTagFilterDisplay(backlog);
+
         // Sort according to current order
         const sorted = [...backlog];
         if (this.backlogSortOrder === 'lifo') {
             sorted.reverse();
         }
 
-        if (sorted.length === 0) {
-            this.elements.backlogList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 2rem; font-family: Space Mono, monospace;">No backlog tasks. Add one above!</p>';
+        // Apply search and filter
+        const filtered = sorted.filter(task => {
+            const matchesFilter = this.backlogActiveFilters.size === 0 || 
+                (task.labels && task.labels.some(l => this.backlogActiveFilters.has(l)));
+            const matchesSearch = !this.backlogSearchQuery || 
+                task.content.toLowerCase().includes(this.backlogSearchQuery) ||
+                (task.labels && task.labels.some(l => l.toLowerCase().includes(this.backlogSearchQuery)));
+            return matchesFilter && matchesSearch;
+        });
+
+        // Update counter
+        const total = backlog.length;
+        const showing = filtered.length;
+        const isFiltering = this.backlogActiveFilters.size > 0 || this.backlogSearchQuery;
+        this.elements.backlogTaskCounter.textContent = isFiltering
+            ? `${showing} of ${total} tasks`
+            : `${total} task${total !== 1 ? 's' : ''}`;
+
+        if (filtered.length === 0) {
+            this.elements.backlogList.innerHTML = `<p style="text-align: center; color: var(--text-secondary); padding: 2rem; font-family: Space Mono, monospace;">${total === 0 ? 'No backlog tasks. Add one above!' : 'No matching tasks.'}</p>`;
             return;
         }
 
-        this.elements.backlogList.innerHTML = sorted.map(task => {
+        this.elements.backlogList.innerHTML = filtered.map(task => {
             const isCollapsed = this.collapsedTasks.has(task.id);
             const collapseIcon = isCollapsed ? '▸' : '▾';
             const collapsedClass = isCollapsed ? ' collapsed' : '';
@@ -1171,6 +1369,39 @@ class EisenMatrixController {
         });
     }
 
+    updateBacklogTagFilterDisplay(backlog) {
+        const allLabels = new Set();
+        backlog.forEach(task => {
+            if (task.labels) task.labels.forEach(label => allLabels.add(label));
+        });
+
+        const isAllActive = this.backlogActiveFilters.size === 0;
+        const filterHTML = [`<button class="tag-filter ${isAllActive ? 'active' : ''}" data-filter="all">ALL</button>`];
+        
+        Array.from(allLabels).sort().forEach(label => {
+            const isActive = this.backlogActiveFilters.has(label);
+            filterHTML.push(`<button class="tag-filter ${isActive ? 'active' : ''}" data-filter="${this.escapeHTML(label)}">${this.escapeHTML(label)}</button>`);
+        });
+
+        this.elements.backlogTagFilterContainer.innerHTML = filterHTML.join('');
+
+        this.elements.backlogTagFilterContainer.querySelectorAll('.tag-filter').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const filterValue = btn.dataset.filter;
+                if (filterValue === 'all') {
+                    this.backlogActiveFilters.clear();
+                } else {
+                    if (this.backlogActiveFilters.has(filterValue)) {
+                        this.backlogActiveFilters.delete(filterValue);
+                    } else {
+                        this.backlogActiveFilters.add(filterValue);
+                    }
+                }
+                this.renderBacklogList();
+            });
+        });
+    }
+
     updateTagFilterDisplay() {
         const dataStore = this.retrieveStoredData();
         const allLabels = new Set();
@@ -1210,18 +1441,27 @@ class EisenMatrixController {
         const dataStore = this.retrieveStoredData();
         const quadrants = ['urgent-important', 'not-urgent-important', 'urgent-not-important', 'not-urgent-not-important'];
 
+        let totalActive = dataStore.activeTasks.length;
+        let totalVisible = 0;
+
         quadrants.forEach(quadrantId => {
             const zone = document.querySelector(`.task-zone[data-zone="${quadrantId}"]`);
             if (!zone) return;
 
-            const quadrantTasks = dataStore.activeTasks.filter(task => {
-                const matchesQuadrant = task.quadrant === quadrantId;
+            const allQuadrantTasks = dataStore.activeTasks.filter(t => t.quadrant === quadrantId);
+            const quadrantTasks = allQuadrantTasks.filter(task => {
                 const matchesFilter = this.activeFilters.size === 0 || task.labels.some(l => this.activeFilters.has(l));
                 const matchesSearch = !this.searchQuery || 
                     task.content.toLowerCase().includes(this.searchQuery) ||
                     task.labels.some(l => l.toLowerCase().includes(this.searchQuery));
-                return matchesQuadrant && matchesFilter && matchesSearch;
+                return matchesFilter && matchesSearch;
             });
+
+            totalVisible += quadrantTasks.length;
+
+            // Update quadrant count badge
+            const countEl = document.querySelector(`.quadrant-count[data-count-quadrant="${quadrantId}"]`);
+            if (countEl) countEl.textContent = allQuadrantTasks.length;
 
             zone.innerHTML = quadrantTasks.map(task => this.generateTaskCardHTML(task)).join('');
 
@@ -1299,6 +1539,12 @@ class EisenMatrixController {
                 });
             });
         });
+
+        // Update main task counter
+        const isFiltering = this.activeFilters.size > 0 || this.searchQuery;
+        this.elements.mainTaskCounter.textContent = isFiltering
+            ? `${totalVisible} of ${totalActive} tasks`
+            : `${totalActive} task${totalActive !== 1 ? 's' : ''}`;
     }
 
     generateTaskCardHTML(task) {
@@ -1392,12 +1638,35 @@ class EisenMatrixController {
     populateArchiveDisplay() {
         const dataStore = this.retrieveStoredData();
         
-        if (dataStore.completedTasks.length === 0) {
-            this.elements.archiveList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">No completed tasks yet.</p>';
+        // Build tag filter
+        this.updateArchiveTagFilterDisplay(dataStore);
+        
+        // Filter tasks
+        let filteredTasks = dataStore.completedTasks;
+        
+        if (this.archiveActiveFilters.size > 0) {
+            filteredTasks = filteredTasks.filter(t => t.labels.some(l => this.archiveActiveFilters.has(l)));
+        }
+        if (this.archiveSearchQuery) {
+            filteredTasks = filteredTasks.filter(t =>
+                t.content.toLowerCase().includes(this.archiveSearchQuery) ||
+                t.labels.some(l => l.toLowerCase().includes(this.archiveSearchQuery))
+            );
+        }
+
+        // Update counter
+        const total = dataStore.completedTasks.length;
+        const showing = filteredTasks.length;
+        this.elements.archiveTaskCounter.textContent = showing === total 
+            ? `${total} task${total !== 1 ? 's' : ''}` 
+            : `${showing} of ${total} tasks`;
+
+        if (filteredTasks.length === 0) {
+            this.elements.archiveList.innerHTML = `<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">${total === 0 ? 'No completed tasks yet.' : 'No matching tasks.'}</p>`;
             return;
         }
 
-        const sortedCompleted = [...dataStore.completedTasks].sort((a, b) => {
+        const sortedCompleted = [...filteredTasks].sort((a, b) => {
             return new Date(b.completedAt) - new Date(a.completedAt);
         });
 
@@ -1406,7 +1675,48 @@ class EisenMatrixController {
         this.elements.archiveList.querySelectorAll('.task-card').forEach(card => {
             const taskId = card.dataset.taskId;
             card.querySelector('.btn-restore')?.addEventListener('click', () => this.restoreCompletedTask(taskId));
-            card.querySelector('.btn-delete')?.addEventListener('click', () => this.removeTaskPermanently(taskId));
+            card.querySelector('.btn-delete')?.addEventListener('click', () => this.promptDeleteArchive(taskId));
+        });
+    }
+
+    promptDeleteArchive(taskId) {
+        this.pendingDeleteTaskId = taskId;
+        this.pendingDeleteSource = 'archive';
+        // In archive: only show yes/no (no "archive" option since we're already in archive)
+        this.elements.confirmArchiveBtn.style.display = 'none';
+        this.elements.deleteConfirmOverlay.classList.remove('hidden');
+    }
+
+    updateArchiveTagFilterDisplay(dataStore) {
+        const allLabels = new Set();
+        dataStore.completedTasks.forEach(task => {
+            task.labels.forEach(label => allLabels.add(label));
+        });
+
+        const isAllActive = this.archiveActiveFilters.size === 0;
+        const filterHTML = [`<button class="tag-filter ${isAllActive ? 'active' : ''}" data-filter="all">ALL</button>`];
+        
+        Array.from(allLabels).sort().forEach(label => {
+            const isActive = this.archiveActiveFilters.has(label);
+            filterHTML.push(`<button class="tag-filter ${isActive ? 'active' : ''}" data-filter="${this.escapeHTML(label)}">${this.escapeHTML(label)}</button>`);
+        });
+
+        this.elements.archiveTagFilterContainer.innerHTML = filterHTML.join('');
+
+        this.elements.archiveTagFilterContainer.querySelectorAll('.tag-filter').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const filterValue = btn.dataset.filter;
+                if (filterValue === 'all') {
+                    this.archiveActiveFilters.clear();
+                } else {
+                    if (this.archiveActiveFilters.has(filterValue)) {
+                        this.archiveActiveFilters.delete(filterValue);
+                    } else {
+                        this.archiveActiveFilters.add(filterValue);
+                    }
+                }
+                this.populateArchiveDisplay();
+            });
         });
     }
 
