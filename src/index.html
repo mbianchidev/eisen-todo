@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EISENTODO - Priority Matrix System</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Work+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Header Control Panel -->
+    <header class="control-panel">
+        <div class="brand-section">
+            <a href="#" class="logo-link" id="logoLink">
+                <h1 class="logo">EISENTODO</h1>
+            </a>
+            <p class="tagline">Stop wondering what to do next</p>
+        </div>
+        
+        <div class="action-cluster">
+            <button class="ctrl-btn" id="themeToggleBtn" aria-label="Toggle theme">
+                <span class="icon-theme">◐</span>
+            </button>
+            <button class="ctrl-btn" id="showBacklogBtn">
+                <span>BACKLOG</span>
+            </button>
+            <button class="ctrl-btn" id="showArchiveBtn">
+                <span>ARCHIVE</span>
+            </button>
+            <button class="ctrl-btn" id="showProfileBtn">
+                <span>⚙ SETTINGS</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Search & Filter Bar -->
+    <div class="filter-strip" id="filterStrip">
+        <div class="search-bar">
+            <input type="text" class="search-input" id="searchInput" placeholder="Search tasks..." />
+        </div>
+        <div class="task-counter" id="mainTaskCounter"></div>
+        <button class="ctrl-btn collapse-all-btn" id="collapseAllBtn" title="Collapse/Expand all tasks">
+            <span id="collapseAllIcon">▾</span> COLLAPSE
+        </button>
+        <div class="filter-label">FILTER:</div>
+        <div class="tag-filter-container" id="tagFilterContainer">
+            <button class="tag-filter active" data-filter="all">ALL</button>
+        </div>
+    </div>
+
+    <!-- Main Matrix Grid -->
+    <main class="matrix-container" id="mainMatrix">
+        <div class="matrix-grid">
+            <!-- Quadrant 1: Urgent + Important -->
+            <section class="quadrant q-urgent-important" data-quadrant="urgent-important">
+                <div class="quadrant-header">
+                    <span class="quadrant-icon">🔥</span>
+                    <h2>DO FIRST <span class="quadrant-count" data-count-quadrant="urgent-important">0</span></h2>
+                    <p class="quadrant-subtitle">Urgent + Important</p>
+                </div>
+                <div class="task-zone" data-zone="urgent-important"></div>
+                <div class="quick-add-bar">
+                    <input type="text" class="quick-add-input" data-quadrant="urgent-important" placeholder="Type task... #tag https://link" />
+                </div>
+            </section>
+
+            <!-- Quadrant 2: Not Urgent + Important -->
+            <section class="quadrant q-not-urgent-important" data-quadrant="not-urgent-important">
+                <div class="quadrant-header">
+                    <span class="quadrant-icon">📅</span>
+                    <h2>SCHEDULE <span class="quadrant-count" data-count-quadrant="not-urgent-important">0</span></h2>
+                    <p class="quadrant-subtitle">Not Urgent + Important</p>
+                </div>
+                <div class="task-zone" data-zone="not-urgent-important"></div>
+                <div class="quick-add-bar">
+                    <input type="text" class="quick-add-input" data-quadrant="not-urgent-important" placeholder="Type task... #tag https://link" />
+                </div>
+            </section>
+
+            <!-- Quadrant 3: Urgent + Not Important -->
+            <section class="quadrant q-urgent-not-important" data-quadrant="urgent-not-important">
+                <div class="quadrant-header">
+                    <span class="quadrant-icon">👥</span>
+                    <h2>DELEGATE <span class="quadrant-count" data-count-quadrant="urgent-not-important">0</span></h2>
+                    <p class="quadrant-subtitle">Urgent + Not Important</p>
+                </div>
+                <div class="task-zone" data-zone="urgent-not-important"></div>
+                <div class="quick-add-bar">
+                    <input type="text" class="quick-add-input" data-quadrant="urgent-not-important" placeholder="Type task... #tag https://link" />
+                </div>
+            </section>
+
+            <!-- Quadrant 4: Not Urgent + Not Important -->
+            <section class="quadrant q-not-urgent-not-important" data-quadrant="not-urgent-not-important">
+                <div class="quadrant-header">
+                    <span class="quadrant-icon">🗑️</span>
+                    <h2>ELIMINATE <span class="quadrant-count" data-count-quadrant="not-urgent-not-important">0</span></h2>
+                    <p class="quadrant-subtitle">Not Urgent + Not Important</p>
+                </div>
+                <div class="task-zone" data-zone="not-urgent-not-important"></div>
+                <div class="quick-add-bar">
+                    <input type="text" class="quick-add-input" data-quadrant="not-urgent-not-important" placeholder="Type task... #tag https://link" />
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Archive View (Hidden by default) -->
+    <div class="archive-view hidden" id="archiveView">
+        <div class="archive-header">
+            <div>
+                <h2>COMPLETED ARCHIVE</h2>
+                <p class="archive-subtitle">All finished tasks</p>
+            </div>
+            <button class="ctrl-btn" id="closeArchiveBtn">
+                <span>← BACK</span>
+            </button>
+        </div>
+        <div class="view-filter-strip">
+            <div class="search-bar">
+                <input type="text" class="search-input" id="archiveSearchInput" placeholder="Search archived tasks..." />
+            </div>
+            <div class="task-counter" id="archiveTaskCounter"></div>
+            <div class="filter-label">FILTER:</div>
+            <div class="tag-filter-container" id="archiveTagFilterContainer">
+                <button class="tag-filter active" data-filter="all">ALL</button>
+            </div>
+        </div>
+        <div class="archive-list" id="archiveList"></div>
+    </div>
+
+    <!-- Backlog View (Hidden by default) -->
+    <div class="backlog-view hidden" id="backlogView">
+        <div class="backlog-header">
+            <div>
+                <h2>📋 BACKLOG</h2>
+                <p class="backlog-subtitle">Unsorted tasks — drag them into a quadrant when ready</p>
+            </div>
+            <div class="backlog-header-actions">
+                <div class="backlog-sort">
+                    <span class="backlog-sort-label">ORDER:</span>
+                    <button class="ctrl-btn backlog-sort-btn active" id="backlogFifoBtn">FIFO</button>
+                    <button class="ctrl-btn backlog-sort-btn" id="backlogLifoBtn">LIFO</button>
+                </div>
+                <button class="ctrl-btn" id="closeBacklogBtn">
+                    <span>← BACK</span>
+                </button>
+            </div>
+        </div>
+        <div class="view-filter-strip">
+            <div class="search-bar">
+                <input type="text" class="search-input" id="backlogSearchInput" placeholder="Search backlog tasks..." />
+            </div>
+            <div class="task-counter" id="backlogTaskCounter"></div>
+            <div class="filter-label">FILTER:</div>
+            <div class="tag-filter-container" id="backlogTagFilterContainer">
+                <button class="tag-filter active" data-filter="all">ALL</button>
+            </div>
+        </div>
+
+        <!-- Quadrant drop buckets -->
+        <div class="backlog-buckets">
+            <div class="backlog-bucket" data-bucket="urgent-important">
+                <span class="bucket-icon">🔥</span>
+                <span class="bucket-label">DO FIRST</span>
+                <span class="bucket-hint">Drop here</span>
+            </div>
+            <div class="backlog-bucket" data-bucket="not-urgent-important">
+                <span class="bucket-icon">📅</span>
+                <span class="bucket-label">SCHEDULE</span>
+                <span class="bucket-hint">Drop here</span>
+            </div>
+            <div class="backlog-bucket" data-bucket="urgent-not-important">
+                <span class="bucket-icon">👥</span>
+                <span class="bucket-label">DELEGATE</span>
+                <span class="bucket-hint">Drop here</span>
+            </div>
+            <div class="backlog-bucket" data-bucket="not-urgent-not-important">
+                <span class="bucket-icon">🗑️</span>
+                <span class="bucket-label">ELIMINATE</span>
+                <span class="bucket-hint">Drop here</span>
+            </div>
+        </div>
+
+        <!-- Backlog task input -->
+        <div class="backlog-add-bar">
+            <input type="text" class="backlog-add-input" id="backlogAddInput" placeholder="Add a task to the backlog... #tag https://link" />
+        </div>
+
+        <!-- Backlog task list -->
+        <div class="backlog-list" id="backlogList"></div>
+    </div>
+
+    <!-- Task Creation/Edit Modal -->
+    <div class="modal-overlay hidden" id="taskModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">CREATE NEW TASK</h2>
+                <button class="close-modal" id="closeModalBtn">✕</button>
+            </div>
+            
+            <form id="taskForm">
+                <div class="form-group">
+                    <label for="taskText">Task Description</label>
+                    <textarea id="taskText" rows="3" required placeholder="What needs to be done?"></textarea>
+                </div>
+
+                <div class="form-group quadrant-select-group" id="quadrantSelectGroup">
+                    <label for="taskQuadrant">Quadrant</label>
+                    <select id="taskQuadrant">
+                        <option value="urgent-important">🔥 DO FIRST (Urgent + Important)</option>
+                        <option value="not-urgent-important">📅 SCHEDULE (Not Urgent + Important)</option>
+                        <option value="urgent-not-important">👥 DELEGATE (Urgent + Not Important)</option>
+                        <option value="not-urgent-not-important">🗑️ ELIMINATE (Not Urgent + Not Important)</option>
+                    </select>
+                </div>
+
+                <div class="form-group urgency-toggle-group" id="urgencyToggleGroup">
+                    <div class="toggle-question">
+                        <label>Is it urgent?</label>
+                        <div class="toggle-buttons">
+                            <button type="button" class="toggle-btn" id="urgentYes" data-answer="yes">YES</button>
+                            <button type="button" class="toggle-btn active" id="urgentNo" data-answer="no">NO</button>
+                        </div>
+                    </div>
+                    <div class="toggle-question">
+                        <label>Is it important?</label>
+                        <div class="toggle-buttons">
+                            <button type="button" class="toggle-btn" id="importantYes" data-answer="yes">YES</button>
+                            <button type="button" class="toggle-btn active" id="importantNo" data-answer="no">NO</button>
+                        </div>
+                    </div>
+                    <div class="quadrant-preview" id="quadrantPreview">
+                        <span class="preview-icon">🗑️</span>
+                        <span class="preview-label">→ ELIMINATE</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="taskTags">Tags (comma-separated)</label>
+                    <input type="text" id="taskTags" placeholder="work, urgent, meeting">
+                </div>
+
+                <div class="form-group">
+                    <label for="taskLinks">Links (comma-separated URLs)</label>
+                    <input type="text" id="taskLinks" placeholder="https://example.com, https://docs.com">
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-cancel" id="cancelTaskBtn">CANCEL</button>
+                    <button type="submit" class="btn-submit">SAVE TASK</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Dialog -->
+    <div class="delete-confirm-overlay hidden" id="deleteConfirmOverlay">
+        <div class="delete-confirm-dialog">
+            <div class="delete-confirm-header">
+                <h3>DELETE TASK</h3>
+            </div>
+            <div class="delete-confirm-body">
+                <p>Are you sure you want to delete this task?</p>
+                <div class="delete-confirm-actions">
+                    <button class="btn-confirm-delete" id="confirmDeleteBtn">YES, DELETE</button>
+                    <button class="btn-confirm-archive" id="confirmArchiveBtn">NO, ARCHIVE</button>
+                    <button class="btn-confirm-cancel" id="confirmCancelBtn">NO, CANCEL</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile / Settings Page (Hidden by default) -->
+    <div class="profile-view hidden" id="profileView">
+        <div class="profile-header">
+            <div>
+                <h2>⚙ SETTINGS</h2>
+                <p class="profile-subtitle">Manage your data and preferences</p>
+            </div>
+            <button class="ctrl-btn" id="closeProfileBtn">
+                <span>← BACK</span>
+            </button>
+        </div>
+
+        <div class="profile-content">
+            <!-- Appearance -->
+            <section class="settings-section">
+                <h3 class="settings-section-title">APPEARANCE</h3>
+                <div class="settings-actions">
+                    <div class="settings-card">
+                        <div class="settings-card-info">
+                            <strong>Theme preference</strong>
+                            <p>Choose how EISENTODO looks. System will follow your OS setting.</p>
+                        </div>
+                        <div class="theme-selector" id="themeSelector">
+                            <button class="theme-option" data-theme="light" aria-label="Light theme">
+                                <span class="theme-option-icon">☀</span>
+                                <span class="theme-option-label">Light</span>
+                            </button>
+                            <button class="theme-option" data-theme="dark" aria-label="Dark theme">
+                                <span class="theme-option-icon">☾</span>
+                                <span class="theme-option-label">Dark</span>
+                            </button>
+                            <button class="theme-option" data-theme="system" aria-label="System theme">
+                                <span class="theme-option-icon">◐</span>
+                                <span class="theme-option-label">System</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Data Management -->
+            <section class="settings-section">
+                <h3 class="settings-section-title">DATA MANAGEMENT</h3>
+                <div class="settings-actions">
+                    <div class="settings-card">
+                        <div class="settings-card-info">
+                            <strong>Download your data</strong>
+                            <p>Export all tasks, backlog, and settings as a JSON file.</p>
+                        </div>
+                        <button class="ctrl-btn settings-btn" id="exportDataBtn">↓ EXPORT</button>
+                    </div>
+                    <div class="settings-card">
+                        <div class="settings-card-info">
+                            <strong>Import your data</strong>
+                            <p>Restore tasks from a previously exported JSON file.</p>
+                        </div>
+                        <button class="ctrl-btn settings-btn" id="importDataBtn">↑ IMPORT</button>
+                        <input type="file" id="importFileInput" accept=".json" class="hidden" />
+                    </div>
+                    <div class="settings-card settings-card-danger">
+                        <div class="settings-card-info">
+                            <strong>Delete all data</strong>
+                            <p>Permanently remove all tasks, backlog, archive, and settings. This cannot be undone.</p>
+                        </div>
+                        <button class="ctrl-btn settings-btn settings-btn-danger" id="deleteAllDataBtn">⚠ DELETE ALL</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Privacy & Cookie Policy -->
+            <section class="settings-section">
+                <h3 class="settings-section-title">PRIVACY & COOKIE POLICY</h3>
+                <div class="privacy-policy">
+                    <div class="privacy-point">
+                        <span class="privacy-icon">🔒</span>
+                        <div>
+                            <strong>Your data stays on your device</strong>
+                            <p>All tasks, settings, and preferences are stored exclusively in your browser's localStorage. Nothing is ever sent to any server.</p>
+                        </div>
+                    </div>
+                    <div class="privacy-point">
+                        <span class="privacy-icon">🍪</span>
+                        <div>
+                            <strong>No tracking cookies</strong>
+                            <p>EISENTODO does not use any cookies — tracking or otherwise. We do not collect analytics, fingerprints, or any form of telemetry.</p>
+                        </div>
+                    </div>
+                    <div class="privacy-point">
+                        <span class="privacy-icon">📢</span>
+                        <div>
+                            <strong>No remarketing</strong>
+                            <p>We do not engage in any form of remarketing, retargeting, or advertising. Your usage data is never shared with any third party.</p>
+                        </div>
+                    </div>
+                    <div class="privacy-point">
+                        <span class="privacy-icon">✊</span>
+                        <div>
+                            <strong>Your rights</strong>
+                            <p>You are always entitled to <strong>export</strong>, <strong>import</strong>, or <strong>delete</strong> your data at any time using the controls above. Full data sovereignty, no questions asked.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Delete All Confirmation Dialog -->
+    <div class="delete-confirm-overlay hidden" id="deleteAllConfirmOverlay">
+        <div class="delete-confirm-dialog">
+            <div class="delete-confirm-header">
+                <h3>⚠ DELETE ALL DATA</h3>
+            </div>
+            <div class="delete-confirm-body">
+                <p>This will permanently remove <strong>all tasks, backlog, archive, settings, and preferences</strong>. This action cannot be undone.</p>
+                <div class="delete-confirm-actions">
+                    <button class="btn-confirm-delete" id="confirmDeleteAllBtn">YES, DELETE EVERYTHING</button>
+                    <button class="btn-confirm-cancel" id="cancelDeleteAllBtn">NO, CANCEL</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Onboarding Tour -->
+    <div class="tour-overlay hidden" id="tourOverlay">
+        <div class="tour-dialog">
+            <div class="tour-header">
+                <h2>👋 WELCOME TO EISENTODO</h2>
+            </div>
+            <div class="tour-body">
+                <p>Organize your tasks using the <strong>Eisenhower Matrix</strong> — split by urgency and importance.</p>
+                <div class="tour-steps">
+                    <div class="tour-step">
+                        <span class="tour-step-icon">✍️</span>
+                        <div>
+                            <strong>Write your task</strong>
+                            <p>Use the input bar at the bottom of any quadrant.</p>
+                        </div>
+                    </div>
+                    <div class="tour-step">
+                        <span class="tour-step-icon">🏷️</span>
+                        <div>
+                            <strong>Add #tags</strong>
+                            <p>Type <code>#work</code> or <code>#personal</code> to categorize.</p>
+                        </div>
+                    </div>
+                    <div class="tour-step">
+                        <span class="tour-step-icon">🔗</span>
+                        <div>
+                            <strong>Add links</strong>
+                            <p>Paste <code>https://your.resource.com</code> to attach URLs.</p>
+                        </div>
+                    </div>
+                </div>
+                <p class="tour-cta">Try it yourself!</p>
+            </div>
+            <div class="tour-footer">
+                <button class="btn-submit tour-dismiss-btn" id="tourDismissBtn">GOT IT!</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
