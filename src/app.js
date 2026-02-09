@@ -27,6 +27,8 @@ class EisenMatrixController {
         this.backlogActiveFilters = new Set();
         this.archiveSearchQuery = '';
         this.archiveActiveFilters = new Set();
+        this.collapsedQuadrantsKey = 'eisen_collapsed_quadrants_v1';
+        this.collapsedQuadrants = new Set(); // ids of collapsed quadrants
         
         this.initializeApplication();
     }
@@ -34,6 +36,7 @@ class EisenMatrixController {
     initializeApplication() {
         this.bindUIElements();
         this.loadCollapsedState();
+        this.loadCollapsedQuadrantsState();
         this.attachEventHandlers();
         this.loadApplicationTheme();
         this.loadDrafts();
@@ -108,7 +111,8 @@ class EisenMatrixController {
             // Archive search/filter
             archiveSearchInput: document.getElementById('archiveSearchInput'),
             archiveTagFilterContainer: document.getElementById('archiveTagFilterContainer'),
-            archiveTaskCounter: document.getElementById('archiveTaskCounter')
+            archiveTaskCounter: document.getElementById('archiveTaskCounter'),
+            appFooter: document.getElementById('appFooter')
         };
     }
 
@@ -155,6 +159,13 @@ class EisenMatrixController {
 
         // Collapse/Expand all
         this.elements.collapseAllBtn.addEventListener('click', () => this.toggleCollapseAll());
+
+        // Quadrant collapse buttons
+        document.querySelectorAll('.quadrant-collapse-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.toggleQuadrantCollapse(btn.dataset.collapseQuadrant);
+            });
+        });
 
         // Tour dismiss
         this.elements.tourDismissBtn.addEventListener('click', () => this.dismissTour());
@@ -513,6 +524,42 @@ class EisenMatrixController {
         const allIds = dataStore.activeTasks.map(t => t.id);
         this.allCollapsed = allIds.length > 0 && allIds.every(id => this.collapsedTasks.has(id));
         this.elements.collapseAllIcon.textContent = this.allCollapsed ? '▸' : '▾';
+    }
+
+    // --- Quadrant collapse ---
+
+    loadCollapsedQuadrantsState() {
+        const raw = localStorage.getItem(this.collapsedQuadrantsKey);
+        if (raw) {
+            try {
+                this.collapsedQuadrants = new Set(JSON.parse(raw));
+            } catch (e) { /* ignore */ }
+        }
+        this.applyCollapsedQuadrants();
+    }
+
+    saveCollapsedQuadrantsState() {
+        localStorage.setItem(this.collapsedQuadrantsKey, JSON.stringify([...this.collapsedQuadrants]));
+    }
+
+    toggleQuadrantCollapse(quadrantId) {
+        if (this.collapsedQuadrants.has(quadrantId)) {
+            this.collapsedQuadrants.delete(quadrantId);
+        } else {
+            this.collapsedQuadrants.add(quadrantId);
+        }
+        this.saveCollapsedQuadrantsState();
+        this.applyCollapsedQuadrants();
+    }
+
+    applyCollapsedQuadrants() {
+        document.querySelectorAll('.quadrant[data-quadrant]').forEach(section => {
+            const qId = section.dataset.quadrant;
+            const isCollapsed = this.collapsedQuadrants.has(qId);
+            section.classList.toggle('quadrant-collapsed', isCollapsed);
+            const btn = section.querySelector('.quadrant-collapse-btn');
+            if (btn) btn.textContent = isCollapsed ? '▸' : '▾';
+        });
     }
 
     // --- Inline click-to-edit ---
@@ -999,6 +1046,7 @@ class EisenMatrixController {
         this.elements.backlogView.classList.add('hidden');
         this.elements.profileView.classList.add('hidden');
         this.elements.archiveView.classList.remove('hidden');
+        this.elements.appFooter.classList.add('hidden');
         document.getElementById('filterStrip').classList.add('hidden');
         this.populateArchiveDisplay();
         this.updateURLParams();
@@ -1007,6 +1055,7 @@ class EisenMatrixController {
     hideArchiveView() {
         this.elements.archiveView.classList.add('hidden');
         this.elements.mainMatrix.classList.remove('hidden');
+        this.elements.appFooter.classList.remove('hidden');
         document.getElementById('filterStrip').classList.remove('hidden');
         this.updateURLParams();
     }
@@ -1018,6 +1067,7 @@ class EisenMatrixController {
         this.elements.backlogView.classList.add('hidden');
         this.elements.profileView.classList.add('hidden');
         this.elements.mainMatrix.classList.remove('hidden');
+        this.elements.appFooter.classList.remove('hidden');
         document.getElementById('filterStrip').classList.remove('hidden');
         this.renderApplicationState();
         this.updateURLParams();
@@ -1043,6 +1093,7 @@ class EisenMatrixController {
         this.elements.archiveView.classList.add('hidden');
         this.elements.backlogView.classList.add('hidden');
         this.elements.profileView.classList.remove('hidden');
+        this.elements.appFooter.classList.add('hidden');
         document.getElementById('filterStrip').classList.add('hidden');
         this.updateThemeSelectorUI();
         this.updateURLParams();
@@ -1051,6 +1102,7 @@ class EisenMatrixController {
     hideProfileView() {
         this.elements.profileView.classList.add('hidden');
         this.elements.mainMatrix.classList.remove('hidden');
+        this.elements.appFooter.classList.remove('hidden');
         document.getElementById('filterStrip').classList.remove('hidden');
         this.renderApplicationState();
         this.updateURLParams();
@@ -1064,6 +1116,7 @@ class EisenMatrixController {
             backlog: this.retrieveBacklogData(),
             theme: localStorage.getItem('eisen_theme') || 'light',
             collapsed: [...this.collapsedTasks],
+            collapsedQuadrants: [...this.collapsedQuadrants],
             drafts: localStorage.getItem(this.draftsKey) || '{}'
         };
 
@@ -1100,6 +1153,11 @@ class EisenMatrixController {
                     this.collapsedTasks = new Set(data.collapsed);
                     this.saveCollapsedState();
                 }
+                if (data.collapsedQuadrants) {
+                    this.collapsedQuadrants = new Set(data.collapsedQuadrants);
+                    this.saveCollapsedQuadrantsState();
+                    this.applyCollapsedQuadrants();
+                }
                 if (data.drafts) {
                     localStorage.setItem(this.draftsKey, data.drafts);
                 }
@@ -1123,12 +1181,14 @@ class EisenMatrixController {
         localStorage.removeItem(this.storageKey);
         localStorage.removeItem(this.backlogKey);
         localStorage.removeItem(this.collapsedKey);
+        localStorage.removeItem(this.collapsedQuadrantsKey);
         localStorage.removeItem(this.draftsKey);
         localStorage.removeItem(this.tourKey);
         localStorage.removeItem('eisen_theme');
 
         // Reset in-memory state
         this.collapsedTasks.clear();
+        this.collapsedQuadrants.clear();
         this.activeFilters.clear();
         this.searchQuery = '';
         this.backlogSearchQuery = '';
@@ -1140,6 +1200,7 @@ class EisenMatrixController {
 
         this.cancelDeleteAll();
         this.hideProfileView();
+        this.applyCollapsedQuadrants();
         this.renderApplicationState();
     }
 
@@ -1290,6 +1351,9 @@ class EisenMatrixController {
         // Reset in-memory filter/search state
         this.collapsedTasks.clear();
         this.saveCollapsedState();
+        this.collapsedQuadrants.clear();
+        this.saveCollapsedQuadrantsState();
+        this.applyCollapsedQuadrants();
         this.activeFilters.clear();
         this.searchQuery = '';
         this.backlogSearchQuery = '';
@@ -1321,6 +1385,7 @@ class EisenMatrixController {
         this.elements.archiveView.classList.add('hidden');
         this.elements.profileView.classList.add('hidden');
         this.elements.backlogView.classList.remove('hidden');
+        this.elements.appFooter.classList.add('hidden');
         document.getElementById('filterStrip').classList.add('hidden');
         this.renderBacklogList();
         this.updateURLParams();
@@ -1329,6 +1394,7 @@ class EisenMatrixController {
     hideBacklogView() {
         this.elements.backlogView.classList.add('hidden');
         this.elements.mainMatrix.classList.remove('hidden');
+        this.elements.appFooter.classList.remove('hidden');
         document.getElementById('filterStrip').classList.remove('hidden');
         this.renderApplicationState();
         this.updateURLParams();
@@ -1543,9 +1609,7 @@ class EisenMatrixController {
                 : '';
 
             const date = new Date(task.createdAt).toLocaleDateString();
-            const collapsedSummary = isCollapsed
-                ? `<span class="collapsed-summary">${this.escapeHTML(task.content.substring(0, 50))}${task.content.length > 50 ? '...' : ''}</span>`
-                : '';
+            const collapsedSummary = `<span class="collapsed-summary">${this.escapeHTML(task.content)}</span>`;
 
             return `
                 <div class="backlog-task-card task-card${collapsedClass}" data-backlog-id="${task.id}" draggable="true">
@@ -1922,10 +1986,8 @@ class EisenMatrixController {
             : statusConfig.completeAction;
         const showRevert = task.status === 'in-progress';
 
-        // Collapsed summary: show truncated content when collapsed
-        const collapsedSummary = isCollapsed 
-            ? `<span class="collapsed-summary">${this.escapeHTML(task.content)}</span>` 
-            : '';
+        // Collapsed summary: always rendered, visibility controlled via CSS
+        const collapsedSummary = `<span class="collapsed-summary">${this.escapeHTML(task.content)}</span>`;
 
         return `
             <div class="task-card ${isCollapsed ? 'collapsed' : ''}" data-task-id="${task.id}" draggable="true">

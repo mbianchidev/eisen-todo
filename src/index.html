@@ -56,9 +56,12 @@
             <!-- Quadrant 1: Urgent + Important -->
             <section class="quadrant q-urgent-important" data-quadrant="urgent-important">
                 <div class="quadrant-header">
-                    <span class="quadrant-icon">🔥</span>
-                    <h2>DO FIRST <span class="quadrant-count" data-count-quadrant="urgent-important">0</span></h2>
-                    <p class="quadrant-subtitle">Urgent + Important</p>
+                    <div class="quadrant-header-info">
+                        <span class="quadrant-icon">🔥</span>
+                        <h2>DO FIRST <span class="quadrant-count" data-count-quadrant="urgent-important">0</span></h2>
+                        <p class="quadrant-subtitle">Urgent + Important</p>
+                    </div>
+                    <button class="quadrant-collapse-btn" data-collapse-quadrant="urgent-important" title="Collapse/Expand quadrant">▾</button>
                 </div>
                 <div class="task-zone" data-zone="urgent-important"></div>
                 <div class="quick-add-bar">
@@ -69,9 +72,12 @@
             <!-- Quadrant 2: Not Urgent + Important -->
             <section class="quadrant q-not-urgent-important" data-quadrant="not-urgent-important">
                 <div class="quadrant-header">
-                    <span class="quadrant-icon">📅</span>
-                    <h2>SCHEDULE <span class="quadrant-count" data-count-quadrant="not-urgent-important">0</span></h2>
-                    <p class="quadrant-subtitle">Not Urgent + Important</p>
+                    <div class="quadrant-header-info">
+                        <span class="quadrant-icon">📅</span>
+                        <h2>SCHEDULE <span class="quadrant-count" data-count-quadrant="not-urgent-important">0</span></h2>
+                        <p class="quadrant-subtitle">Not Urgent + Important</p>
+                    </div>
+                    <button class="quadrant-collapse-btn" data-collapse-quadrant="not-urgent-important" title="Collapse/Expand quadrant">▾</button>
                 </div>
                 <div class="task-zone" data-zone="not-urgent-important"></div>
                 <div class="quick-add-bar">
@@ -82,9 +88,12 @@
             <!-- Quadrant 3: Urgent + Not Important -->
             <section class="quadrant q-urgent-not-important" data-quadrant="urgent-not-important">
                 <div class="quadrant-header">
-                    <span class="quadrant-icon">👥</span>
-                    <h2>DELEGATE <span class="quadrant-count" data-count-quadrant="urgent-not-important">0</span></h2>
-                    <p class="quadrant-subtitle">Urgent + Not Important</p>
+                    <div class="quadrant-header-info">
+                        <span class="quadrant-icon">👥</span>
+                        <h2>DELEGATE <span class="quadrant-count" data-count-quadrant="urgent-not-important">0</span></h2>
+                        <p class="quadrant-subtitle">Urgent + Not Important</p>
+                    </div>
+                    <button class="quadrant-collapse-btn" data-collapse-quadrant="urgent-not-important" title="Collapse/Expand quadrant">▾</button>
                 </div>
                 <div class="task-zone" data-zone="urgent-not-important"></div>
                 <div class="quick-add-bar">
@@ -95,9 +104,12 @@
             <!-- Quadrant 4: Not Urgent + Not Important -->
             <section class="quadrant q-not-urgent-not-important" data-quadrant="not-urgent-not-important">
                 <div class="quadrant-header">
-                    <span class="quadrant-icon">🗑️</span>
-                    <h2>ELIMINATE <span class="quadrant-count" data-count-quadrant="not-urgent-not-important">0</span></h2>
-                    <p class="quadrant-subtitle">Not Urgent + Not Important</p>
+                    <div class="quadrant-header-info">
+                        <span class="quadrant-icon">🗑️</span>
+                        <h2>ELIMINATE <span class="quadrant-count" data-count-quadrant="not-urgent-not-important">0</span></h2>
+                        <p class="quadrant-subtitle">Not Urgent + Not Important</p>
+                    </div>
+                    <button class="quadrant-collapse-btn" data-collapse-quadrant="not-urgent-not-important" title="Collapse/Expand quadrant">▾</button>
                 </div>
                 <div class="task-zone" data-zone="not-urgent-not-important"></div>
                 <div class="quick-add-bar">
@@ -349,6 +361,20 @@
                 </div>
             </section>
 
+            <!-- Feedback -->
+            <section class="settings-section">
+                <h3 class="settings-section-title">FEEDBACK</h3>
+                <div class="settings-actions">
+                    <div class="settings-card">
+                        <div class="settings-card-info">
+                            <strong>Request a feature</strong>
+                            <p>Have an idea to improve EISENTODO? Submit a feature request on GitHub.</p>
+                        </div>
+                        <a href="https://github.com/mbianchidev/eisen-todo/issues/new?template=feature_request.yml" target="_blank" rel="noopener noreferrer" class="ctrl-btn settings-btn">💡 REQUEST</a>
+                    </div>
+                </div>
+            </section>
+
             <!-- Privacy & Cookie Policy -->
             <section class="settings-section">
                 <h3 class="settings-section-title">PRIVACY & COOKIE POLICY</h3>
@@ -463,6 +489,16 @@
             </div>
         </div>
     </div>
+
+    <!-- Footer -->
+    <footer class="app-footer" id="appFooter">
+        <p>
+            <a href="https://github.com/mbianchidev/eisen-todo" target="_blank" rel="noopener noreferrer" class="footer-link">
+                GitHub
+            </a>
+            · Built with the Eisenhower Matrix
+        </p>
+    </footer>
 
     <script src="app.js"></script>
 </body>
