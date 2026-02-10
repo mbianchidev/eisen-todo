@@ -1437,6 +1437,10 @@ body {
     display: inline-block;
 }
 
+.task-card.collapsed .task-status-badge {
+    cursor: pointer;
+}
+
 /* === MULTI-TAG ACTIVE FILTER BADGES === */
 .tag-filter.active-multi {
     background: var(--accent-electric);

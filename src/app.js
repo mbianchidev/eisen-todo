@@ -1921,6 +1921,14 @@ class EisenMatrixController {
                     this.revertTaskStatus(taskId);
                 });
 
+                // Status badge click (advance status when collapsed)
+                card.querySelector('.task-status-badge')?.addEventListener('click', (evt) => {
+                    evt.stopPropagation();
+                    if (card.classList.contains('collapsed')) {
+                        this.advanceTaskStatus(taskId);
+                    }
+                });
+
                 // Tag click handlers (filter by tag)
                 card.querySelectorAll('.task-tag').forEach(tagEl => {
                     tagEl.addEventListener('click', (evt) => {
