@@ -1441,6 +1441,14 @@ body {
     cursor: pointer;
 }
 
+.task-card.collapsed.inline-editing .task-text {
+    display: block;
+}
+
+.task-card.collapsed.inline-editing .collapsed-summary {
+    display: none;
+}
+
 /* === MULTI-TAG ACTIVE FILTER BADGES === */
 .tag-filter.active-multi {
     background: var(--accent-electric);

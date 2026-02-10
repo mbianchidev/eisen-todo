@@ -1953,7 +1953,8 @@ class EisenMatrixController {
                         evt.target.closest('.task-control-btn') || 
                         evt.target.closest('.task-tag') || 
                         evt.target.closest('.task-link') || 
-                        evt.target.closest('.task-collapse-btn')) {
+                        evt.target.closest('.task-collapse-btn') ||
+                        evt.target.closest('.task-status-badge')) {
                         return;
                     }
                     this.enterInlineEdit(taskId);
