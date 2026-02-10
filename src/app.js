@@ -1921,13 +1921,31 @@ class EisenMatrixController {
                     this.revertTaskStatus(taskId);
                 });
 
-                // Status badge click (advance status when collapsed)
-                card.querySelector('.task-status-badge')?.addEventListener('click', (evt) => {
-                    evt.stopPropagation();
-                    if (card.classList.contains('collapsed')) {
-                        this.advanceTaskStatus(taskId);
-                    }
-                });
+                // Status badge interaction (advance status when collapsed)
+                const statusBadge = card.querySelector('.task-status-badge');
+                if (statusBadge) {
+                    statusBadge.setAttribute('role', 'button');
+                    statusBadge.tabIndex = 0;
+
+                    const advanceIfCollapsed = () => {
+                        if (card.classList.contains('collapsed') && this.inlineEditingTaskId !== taskId) {
+                            this.advanceTaskStatus(taskId);
+                        }
+                    };
+
+                    statusBadge.addEventListener('click', (evt) => {
+                        evt.stopPropagation();
+                        advanceIfCollapsed();
+                    });
+
+                    statusBadge.addEventListener('keydown', (evt) => {
+                        if (evt.key === 'Enter' || evt.key === ' ') {
+                            evt.preventDefault();
+                            evt.stopPropagation();
+                            advanceIfCollapsed();
+                        }
+                    });
+                }
 
                 // Tag click handlers (filter by tag)
                 card.querySelectorAll('.task-tag').forEach(tagEl => {
