@@ -399,14 +399,17 @@ class EisenMatrixController {
     // --- Quick-add parser ---
 
     parseQuickInput(rawText) {
-        const tagMatches = rawText.match(/#(\w[\w-]*)/g) || [];
-        const labels = tagMatches.map(t => t.substring(1));
-
         const urlMatches = rawText.match(/https?:\/\/[^\s,]+/g) || [];
 
-        let content = rawText;
+        // Remove URLs before extracting tags so that # fragments in URLs are not treated as tags
+        let textWithoutUrls = rawText;
+        urlMatches.forEach(u => { textWithoutUrls = textWithoutUrls.replaceAll(u, ''); });
+
+        const tagMatches = textWithoutUrls.match(/#(\w[\w-]*)/g) || [];
+        const labels = tagMatches.map(t => t.substring(1));
+
+        let content = textWithoutUrls;
         tagMatches.forEach(t => { content = content.replace(t, ''); });
-        urlMatches.forEach(u => { content = content.replace(u, ''); });
         content = content.replace(/\s+/g, ' ').trim();
 
         return { content, labels, urls: urlMatches };
