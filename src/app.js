@@ -403,7 +403,7 @@ class EisenMatrixController {
 
         // Remove URLs before extracting tags so that # fragments in URLs are not treated as tags
         let textWithoutUrls = rawText;
-        urlMatches.forEach(u => { textWithoutUrls = textWithoutUrls.replace(u, ''); });
+        urlMatches.forEach(u => { textWithoutUrls = textWithoutUrls.replaceAll(u, ''); });
 
         const tagMatches = textWithoutUrls.match(/#(\w[\w-]*)/g) || [];
         const labels = tagMatches.map(t => t.substring(1));
