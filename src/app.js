@@ -29,11 +29,16 @@ class EisenMatrixController {
         this.archiveActiveFilters = new Set();
         this.collapsedQuadrantsKey = 'eisen_collapsed_quadrants_v1';
         this.collapsedQuadrants = new Set(); // ids of collapsed quadrants
+        this.profilesKey = 'eisen_profiles';
+        this.currentProfileKey = 'eisen_current_profile';
+        this.tagColorsKey = 'eisen_tag_colors_v1';
+        this.currentProfileName = 'default';
         
         this.initializeApplication();
     }
 
     initializeApplication() {
+        this.initializeProfile();
         this.bindUIElements();
         this.loadCollapsedState();
         this.loadCollapsedQuadrantsState();
@@ -311,6 +316,397 @@ class EisenMatrixController {
         });
     }
 
+    // --- Profile management ---
+
+    initializeProfile() {
+        // Ensure profiles registry exists
+        const profiles = this.getProfiles();
+        if (profiles.length === 0) {
+            this.saveProfiles([{ id: 0, name: 'default' }]);
+        }
+
+        // Determine active profile from URL first, then localStorage
+        const params = new URLSearchParams(window.location.search);
+        const urlProfile = params.get('profile');
+
+        if (urlProfile && /^[a-zA-Z0-9]+$/.test(urlProfile)) {
+            this.currentProfileName = urlProfile;
+        } else {
+            const stored = localStorage.getItem(this.currentProfileKey);
+            if (stored && /^[a-zA-Z0-9]+$/.test(stored)) {
+                this.currentProfileName = stored;
+            } else {
+                this.currentProfileName = 'default';
+            }
+        }
+
+        // Ensure the profile exists in the registry
+        const allProfiles = this.getProfiles();
+        if (!allProfiles.find(p => p.name === this.currentProfileName)) {
+            this.currentProfileName = 'default';
+        }
+
+        localStorage.setItem(this.currentProfileKey, this.currentProfileName);
+        this.applyProfileStorageKeys(this.currentProfileName);
+    }
+
+    getProfileStorageKeys(profileName) {
+        const suffix = profileName === 'default' ? '' : `_profile_${profileName}`;
+        return {
+            storageKey: `eisen_matrix_data_v1${suffix}`,
+            backlogKey: `eisen_backlog_v1${suffix}`,
+            collapsedKey: `eisen_collapsed_v1${suffix}`,
+            collapsedQuadrantsKey: `eisen_collapsed_quadrants_v1${suffix}`,
+            draftsKey: `eisen_drafts_v1${suffix}`,
+            tourKey: `eisen_tour_seen_v1${suffix}`,
+            tagColorsKey: `eisen_tag_colors_v1${suffix}`
+        };
+    }
+
+    applyProfileStorageKeys(profileName) {
+        const keys = this.getProfileStorageKeys(profileName);
+        this.storageKey = keys.storageKey;
+        this.backlogKey = keys.backlogKey;
+        this.collapsedKey = keys.collapsedKey;
+        this.collapsedQuadrantsKey = keys.collapsedQuadrantsKey;
+        this.draftsKey = keys.draftsKey;
+        this.tourKey = keys.tourKey;
+        this.tagColorsKey = keys.tagColorsKey;
+    }
+
+    getProfiles() {
+        const raw = localStorage.getItem(this.profilesKey);
+        if (!raw) return [];
+        try {
+            return JSON.parse(raw);
+        } catch { return []; }
+    }
+
+    saveProfiles(profiles) {
+        localStorage.setItem(this.profilesKey, JSON.stringify(profiles));
+    }
+
+    getCurrentProfileName() {
+        return this.currentProfileName;
+    }
+
+    switchProfile(name) {
+        const profiles = this.getProfiles();
+        if (!profiles.find(p => p.name === name)) return;
+
+        this.currentProfileName = name;
+        localStorage.setItem(this.currentProfileKey, name);
+        this.applyProfileStorageKeys(name);
+
+        // Reset in-memory state
+        this.collapsedTasks.clear();
+        this.collapsedQuadrants.clear();
+        this.activeFilters.clear();
+        this.searchQuery = '';
+        this.backlogSearchQuery = '';
+        this.backlogActiveFilters.clear();
+        this.archiveSearchQuery = '';
+        this.archiveActiveFilters.clear();
+
+        // Reload profile state
+        this.loadCollapsedState();
+        this.loadCollapsedQuadrantsState();
+        this.loadDrafts();
+        this.applyCollapsedQuadrants();
+        this.updateURLParams();
+        this.renderApplicationState();
+    }
+
+    createProfile(name) {
+        if (!name || !/^[a-zA-Z0-9]+$/.test(name)) return false;
+
+        const profiles = this.getProfiles();
+        if (profiles.find(p => p.name === name)) return false;
+
+        const maxId = profiles.reduce((max, p) => Math.max(max, p.id), -1);
+        profiles.push({ id: maxId + 1, name });
+        this.saveProfiles(profiles);
+        return true;
+    }
+
+    deleteProfile(name) {
+        if (name === 'default') return false;
+
+        const profiles = this.getProfiles();
+        const index = profiles.findIndex(p => p.name === name);
+        if (index === -1) return false;
+
+        // Remove profile data from localStorage
+        const keys = this.getProfileStorageKeys(name);
+        Object.values(keys).forEach(key => localStorage.removeItem(key));
+
+        profiles.splice(index, 1);
+        this.saveProfiles(profiles);
+
+        // If deleting current profile, switch to default
+        if (this.currentProfileName === name) {
+            this.switchProfile('default');
+        }
+        return true;
+    }
+
+    // --- Tag color management ---
+
+    generateTagColor(existingColors) {
+        const existingHues = Object.values(existingColors || {}).map(hex => {
+            const rgb = this.hexToRGB(hex);
+            return this.rgbToHSL(rgb.r, rgb.g, rgb.b).h;
+        });
+
+        let bestHue = 0;
+        let bestDistance = 0;
+
+        for (let attempt = 0; attempt < 36; attempt++) {
+            const candidateHue = (attempt * 10 + Math.random() * 10) % 360;
+            let minDist = 360;
+            for (const h of existingHues) {
+                const dist = Math.min(Math.abs(candidateHue - h), 360 - Math.abs(candidateHue - h));
+                if (dist < minDist) minDist = dist;
+            }
+            if (existingHues.length === 0) minDist = 360;
+            if (minDist > bestDistance) {
+                bestDistance = minDist;
+                bestHue = candidateHue;
+            }
+        }
+
+        const saturation = 50 + Math.random() * 30;
+        const lightness = 35 + Math.random() * 30;
+        return this.hslToHex(bestHue, saturation, lightness);
+    }
+
+    hexToRGB(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+        } : { r: 0, g: 0, b: 0 };
+    }
+
+    rgbToHSL(r, g, b) {
+        r /= 255; g /= 255; b /= 255;
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        let h, s, l = (max + min) / 2;
+
+        if (max === min) {
+            h = s = 0;
+        } else {
+            const d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+                case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+                case g: h = ((b - r) / d + 2) / 6; break;
+                case b: h = ((r - g) / d + 4) / 6; break;
+            }
+            h *= 360;
+        }
+        return { h, s: s * 100, l: l * 100 };
+    }
+
+    hslToHex(h, s, l) {
+        s /= 100; l /= 100;
+        const a = s * Math.min(l, 1 - l);
+        const f = n => {
+            const k = (n + h / 30) % 12;
+            const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+            return Math.round(255 * color).toString(16).padStart(2, '0');
+        };
+        return `#${f(0)}${f(8)}${f(4)}`;
+    }
+
+    getTagTextColor(bgColor) {
+        const rgb = this.hexToRGB(bgColor);
+        const toLinear = (c) => {
+            c /= 255;
+            return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+        };
+        const luminance = 0.2126 * toLinear(rgb.r) + 0.7152 * toLinear(rgb.g) + 0.0722 * toLinear(rgb.b);
+        return luminance > 0.179 ? '#000000' : '#FFFFFF';
+    }
+
+    getTagColors() {
+        const raw = localStorage.getItem(this.tagColorsKey);
+        if (!raw) return {};
+        try {
+            return JSON.parse(raw);
+        } catch { return {}; }
+    }
+
+    saveTagColors(colors) {
+        localStorage.setItem(this.tagColorsKey, JSON.stringify(colors));
+    }
+
+    ensureTagColors(labels) {
+        if (!labels || labels.length === 0) return;
+        const colors = this.getTagColors();
+        let changed = false;
+        labels.forEach(label => {
+            if (!colors[label]) {
+                colors[label] = this.generateTagColor(colors);
+                changed = true;
+            }
+        });
+        if (changed) this.saveTagColors(colors);
+    }
+
+    updateTagColor(tagName, newColor) {
+        const colors = this.getTagColors();
+        colors[tagName] = newColor;
+        this.saveTagColors(colors);
+    }
+
+    // --- Profile settings UI ---
+
+    renderProfileSettings() {
+        let container = document.getElementById('profileSettingsContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'profileSettingsContainer';
+            const exportBtn = this.elements.exportDataBtn;
+            if (exportBtn && exportBtn.parentNode) {
+                exportBtn.parentNode.insertBefore(container, exportBtn);
+            }
+        }
+
+        const profiles = this.getProfiles();
+        const current = this.currentProfileName;
+
+        let html = `<h3 style="margin: 1rem 0 0.5rem; font-family: Space Mono, monospace;">PROFILES</h3>`;
+        html += `<div style="margin-bottom: 1rem;">`;
+
+        profiles.forEach(p => {
+            const isCurrent = p.name === current;
+            const indicator = isCurrent ? ' ◀ current' : '';
+            html += `<div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.25rem 0; font-family: Space Mono, monospace;">`;
+            html += `<span style="flex: 1; font-weight: ${isCurrent ? 'bold' : 'normal'};">${this.escapeHTML(p.name)}${indicator}</span>`;
+            if (!isCurrent) {
+                html += `<button class="profile-switch-btn" data-profile="${this.escapeHTML(p.name)}" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; cursor: pointer;">SWITCH</button>`;
+            }
+            if (p.name !== 'default') {
+                html += `<button class="profile-delete-btn" data-profile="${this.escapeHTML(p.name)}" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; cursor: pointer; color: #e53e3e;">DELETE</button>`;
+            }
+            html += `</div>`;
+        });
+
+        html += `</div>`;
+        html += `<div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">`;
+        html += `<input type="text" id="newProfileInput" placeholder="New profile name" style="flex: 1; padding: 0.3rem 0.5rem; font-family: Space Mono, monospace;" />`;
+        html += `<button id="createProfileBtn" style="padding: 0.3rem 0.75rem; cursor: pointer; font-family: Space Mono, monospace;">CREATE</button>`;
+        html += `</div>`;
+        html += `<hr style="margin: 1rem 0; border-color: var(--border-color, #ccc);" />`;
+
+        container.innerHTML = html;
+
+        container.querySelectorAll('.profile-switch-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.switchProfile(btn.dataset.profile);
+                this.renderProfileSettings();
+                this.renderTagColorSettings();
+                this.renderExportDropdown();
+            });
+        });
+
+        container.querySelectorAll('.profile-delete-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (confirm(`Delete profile "${btn.dataset.profile}" and all its data?`)) {
+                    this.deleteProfile(btn.dataset.profile);
+                    this.renderProfileSettings();
+                    this.renderTagColorSettings();
+                    this.renderExportDropdown();
+                }
+            });
+        });
+
+        const createBtn = document.getElementById('createProfileBtn');
+        const input = document.getElementById('newProfileInput');
+        if (createBtn) {
+            createBtn.addEventListener('click', () => {
+                const name = input.value.trim();
+                if (this.createProfile(name)) {
+                    input.value = '';
+                    this.renderProfileSettings();
+                    this.renderExportDropdown();
+                } else {
+                    alert('Invalid profile name. Use only letters and numbers, and the name must be unique.');
+                }
+            });
+        }
+    }
+
+    renderTagColorSettings() {
+        let container = document.getElementById('tagColorSettingsContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'tagColorSettingsContainer';
+            const profileContainer = document.getElementById('profileSettingsContainer');
+            if (profileContainer && profileContainer.parentNode) {
+                profileContainer.parentNode.insertBefore(container, profileContainer.nextSibling);
+            }
+        }
+
+        const colors = this.getTagColors();
+        const tagNames = Object.keys(colors).sort();
+
+        if (tagNames.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+
+        let html = `<h3 style="margin: 1rem 0 0.5rem; font-family: Space Mono, monospace;">TAG COLORS</h3>`;
+        html += `<div style="margin-bottom: 1rem;">`;
+
+        tagNames.forEach(tag => {
+            const color = colors[tag];
+            const textColor = this.getTagTextColor(color);
+            html += `<div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.25rem 0; font-family: Space Mono, monospace;">`;
+            html += `<span class="task-tag" style="background-color: ${color}; color: ${textColor}; min-width: 80px; text-align: center;">${this.escapeHTML(tag)}</span>`;
+            html += `<input type="color" class="tag-color-picker" data-tag="${this.escapeHTML(tag)}" value="${color}" style="width: 32px; height: 24px; border: none; cursor: pointer;" />`;
+            html += `</div>`;
+        });
+
+        html += `</div>`;
+        html += `<hr style="margin: 1rem 0; border-color: var(--border-color, #ccc);" />`;
+
+        container.innerHTML = html;
+
+        container.querySelectorAll('.tag-color-picker').forEach(picker => {
+            picker.addEventListener('change', () => {
+                this.updateTagColor(picker.dataset.tag, picker.value);
+                this.renderTagColorSettings();
+                this.renderApplicationState();
+            });
+        });
+    }
+
+    renderExportDropdown() {
+        let container = document.getElementById('exportDropdownContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'exportDropdownContainer';
+            if (this.elements.exportDataBtn && this.elements.exportDataBtn.parentNode) {
+                this.elements.exportDataBtn.parentNode.insertBefore(container, this.elements.exportDataBtn);
+            }
+        }
+
+        const profiles = this.getProfiles();
+        let html = `<label style="font-family: Space Mono, monospace; font-size: 0.85rem; margin-right: 0.5rem;">Export scope:</label>`;
+        html += `<select id="exportScopeSelect" style="font-family: Space Mono, monospace; padding: 0.2rem; margin-bottom: 0.5rem;">`;
+        html += `<option value="all">All Profiles</option>`;
+        profiles.forEach(p => {
+            html += `<option value="${this.escapeHTML(p.name)}">${this.escapeHTML(p.name)}</option>`;
+        });
+        html += `</select>`;
+
+        container.innerHTML = html;
+    }
+
     // --- Drop indicator and reorder helpers ---
 
     showDropIndicator(zone, clientY) {
@@ -436,6 +832,7 @@ class EisenMatrixController {
         };
         dataStore.activeTasks.push(newTask);
         this.persistDataToStorage(dataStore);
+        this.ensureTagColors(labels);
 
         inputElement.value = '';
         this.saveDrafts();
@@ -960,6 +1357,7 @@ class EisenMatrixController {
         }
 
         this.persistDataToStorage(dataStore);
+        this.ensureTagColors(taskLabels);
         this.closeTaskModal();
         this.renderApplicationState();
     }
@@ -1099,6 +1497,9 @@ class EisenMatrixController {
         this.elements.appFooter.classList.add('hidden');
         document.getElementById('filterStrip').classList.add('hidden');
         this.updateThemeSelectorUI();
+        this.renderProfileSettings();
+        this.renderTagColorSettings();
+        this.renderExportDropdown();
         this.updateURLParams();
     }
 
@@ -1111,23 +1512,65 @@ class EisenMatrixController {
         this.updateURLParams();
     }
 
+    exportProfileData(profileName) {
+        const keys = this.getProfileStorageKeys(profileName);
+        const rawTasks = localStorage.getItem(keys.storageKey);
+        const rawBacklog = localStorage.getItem(keys.backlogKey);
+        const rawTagColors = localStorage.getItem(keys.tagColorsKey);
+        const rawCollapsed = localStorage.getItem(keys.collapsedKey);
+        const rawCollapsedQuadrants = localStorage.getItem(keys.collapsedQuadrantsKey);
+        const rawDrafts = localStorage.getItem(keys.draftsKey);
+
+        return {
+            tasks: rawTasks ? JSON.parse(rawTasks) : { activeTasks: [], completedTasks: [] },
+            backlog: rawBacklog ? JSON.parse(rawBacklog) : [],
+            tagColors: rawTagColors ? JSON.parse(rawTagColors) : {},
+            collapsed: rawCollapsed ? JSON.parse(rawCollapsed) : [],
+            collapsedQuadrants: rawCollapsedQuadrants ? JSON.parse(rawCollapsedQuadrants) : [],
+            drafts: rawDrafts || '{}'
+        };
+    }
+
     exportAllData() {
+        const exportScope = document.getElementById('exportScopeSelect');
+        const scope = exportScope ? exportScope.value : 'all';
+
+        if (scope !== 'all') {
+            // Export single profile (v1 format for backward compatibility)
+            const profileData = this.exportProfileData(scope);
+            const data = {
+                version: 1,
+                exportedAt: new Date().toISOString(),
+                ...profileData,
+                theme: localStorage.getItem('eisen_theme') || 'light'
+            };
+            this.downloadJSON(data, `eisentodo-${scope}-${new Date().toISOString().slice(0, 10)}.json`);
+            return;
+        }
+
+        // Export all profiles (v2 format)
+        const profiles = this.getProfiles();
+        const profilesData = profiles.map(p => ({
+            name: p.name,
+            data: this.exportProfileData(p.name)
+        }));
+
         const data = {
-            version: 1,
+            version: 2,
             exportedAt: new Date().toISOString(),
-            tasks: this.retrieveStoredData(),
-            backlog: this.retrieveBacklogData(),
             theme: localStorage.getItem('eisen_theme') || 'light',
-            collapsed: [...this.collapsedTasks],
-            collapsedQuadrants: [...this.collapsedQuadrants],
-            drafts: localStorage.getItem(this.draftsKey) || '{}'
+            profiles: profilesData
         };
 
+        this.downloadJSON(data, `eisentodo-all-${new Date().toISOString().slice(0, 10)}.json`);
+    }
+
+    downloadJSON(data, filename) {
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `eisentodo-export-${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1142,27 +1585,60 @@ class EisenMatrixController {
         reader.onload = (e) => {
             try {
                 const data = JSON.parse(e.target.result);
-                
-                if (data.tasks) {
-                    this.persistDataToStorage(data.tasks);
-                }
-                if (data.backlog) {
-                    this.persistBacklogData(data.backlog);
-                }
-                if (data.theme) {
-                    this.setThemePreference(data.theme);
-                }
-                if (data.collapsed) {
-                    this.collapsedTasks = new Set(data.collapsed);
-                    this.saveCollapsedState();
-                }
-                if (data.collapsedQuadrants) {
-                    this.collapsedQuadrants = new Set(data.collapsedQuadrants);
-                    this.saveCollapsedQuadrantsState();
+
+                if (data.version === 2 && data.profiles) {
+                    // Multi-profile import
+                    data.profiles.forEach(profileEntry => {
+                        const { name, data: pData } = profileEntry;
+                        // Ensure profile exists
+                        const profiles = this.getProfiles();
+                        if (!profiles.find(p => p.name === name)) {
+                            const maxId = profiles.reduce((max, p) => Math.max(max, p.id), -1);
+                            profiles.push({ id: maxId + 1, name });
+                            this.saveProfiles(profiles);
+                        }
+                        const keys = this.getProfileStorageKeys(name);
+                        if (pData.tasks) localStorage.setItem(keys.storageKey, JSON.stringify(pData.tasks));
+                        if (pData.backlog) localStorage.setItem(keys.backlogKey, JSON.stringify(pData.backlog));
+                        if (pData.tagColors) localStorage.setItem(keys.tagColorsKey, JSON.stringify(pData.tagColors));
+                        if (pData.collapsed) localStorage.setItem(keys.collapsedKey, JSON.stringify(pData.collapsed));
+                        if (pData.collapsedQuadrants) localStorage.setItem(keys.collapsedQuadrantsKey, JSON.stringify(pData.collapsedQuadrants));
+                        if (pData.drafts) localStorage.setItem(keys.draftsKey, pData.drafts);
+                    });
+                    if (data.theme) {
+                        this.setThemePreference(data.theme);
+                    }
+                    // Reload current profile state
+                    this.loadCollapsedState();
+                    this.loadCollapsedQuadrantsState();
                     this.applyCollapsedQuadrants();
-                }
-                if (data.drafts) {
-                    localStorage.setItem(this.draftsKey, data.drafts);
+                    this.loadDrafts();
+                } else {
+                    // Version 1 or legacy: import into current profile
+                    if (data.tasks) {
+                        this.persistDataToStorage(data.tasks);
+                    }
+                    if (data.backlog) {
+                        this.persistBacklogData(data.backlog);
+                    }
+                    if (data.theme) {
+                        this.setThemePreference(data.theme);
+                    }
+                    if (data.collapsed) {
+                        this.collapsedTasks = new Set(data.collapsed);
+                        this.saveCollapsedState();
+                    }
+                    if (data.collapsedQuadrants) {
+                        this.collapsedQuadrants = new Set(data.collapsedQuadrants);
+                        this.saveCollapsedQuadrantsState();
+                        this.applyCollapsedQuadrants();
+                    }
+                    if (data.drafts) {
+                        localStorage.setItem(this.draftsKey, data.drafts);
+                    }
+                    if (data.tagColors) {
+                        this.saveTagColors(data.tagColors);
+                    }
                 }
 
                 alert('Data imported successfully!');
@@ -1187,6 +1663,7 @@ class EisenMatrixController {
         localStorage.removeItem(this.collapsedQuadrantsKey);
         localStorage.removeItem(this.draftsKey);
         localStorage.removeItem(this.tourKey);
+        localStorage.removeItem(this.tagColorsKey);
         localStorage.removeItem('eisen_theme');
 
         // Reset in-memory state
@@ -1426,6 +1903,7 @@ class EisenMatrixController {
             createdAt: new Date().toISOString()
         });
         this.persistBacklogData(backlog);
+        this.ensureTagColors(labels);
         this.elements.backlogAddInput.value = '';
         this.renderBacklogList();
     }
@@ -1598,13 +2076,18 @@ class EisenMatrixController {
             return;
         }
 
+        const tagColors = this.getTagColors();
         this.elements.backlogList.innerHTML = filtered.map(task => {
             const isCollapsed = this.collapsedTasks.has(task.id);
             const collapseIcon = isCollapsed ? '▸' : '▾';
             const collapsedClass = isCollapsed ? ' collapsed' : '';
 
             const tagsHTML = task.labels && task.labels.length > 0
-                ? `<div class="task-tags">${task.labels.map(l => `<span class="task-tag">${this.escapeHTML(l)}</span>`).join('')}</div>`
+                ? `<div class="task-tags">${task.labels.map(l => {
+                    const bg = tagColors[l];
+                    const style = bg ? ` style="background-color: ${bg}; color: ${this.getTagTextColor(bg)}"` : '';
+                    return `<span class="task-tag"${style}>${this.escapeHTML(l)}</span>`;
+                }).join('')}</div>`
                 : '';
 
             const linksHTML = task.urls && task.urls.length > 0
@@ -1679,9 +2162,12 @@ class EisenMatrixController {
         const filterHTML = [`<button class="tag-filter ${isAllActive ? 'active' : ''}" data-filter="all">ALL</button>`];
         filterHTML.push(`<button class="tag-filter ${isNoTagsActive ? 'active' : ''}" data-filter="__no_tags__">NO TAGS</button>`);
         
+        const tagColors = this.getTagColors();
         Array.from(allLabels).sort().forEach(label => {
             const isActive = this.backlogActiveFilters.has(label);
-            filterHTML.push(`<button class="tag-filter ${isActive ? 'active' : ''}" data-filter="${this.escapeHTML(label)}">${this.escapeHTML(label)}</button>`);
+            const bg = tagColors[label];
+            const style = bg ? ` style="background-color: ${bg}; color: ${this.getTagTextColor(bg)}"` : '';
+            filterHTML.push(`<button class="tag-filter ${isActive ? 'active' : ''}" data-filter="${this.escapeHTML(label)}"${style}>${this.escapeHTML(label)}</button>`);
         });
 
         this.elements.backlogTagFilterContainer.innerHTML = filterHTML.join('');
@@ -1723,9 +2209,12 @@ class EisenMatrixController {
         const filterHTML = [`<button class="tag-filter ${isAllActive ? 'active' : ''}" data-filter="all">ALL</button>`];
         filterHTML.push(`<button class="tag-filter ${isNoTagsActive ? 'active' : ''}" data-filter="__no_tags__">NO TAGS</button>`);
         
+        const tagColors = this.getTagColors();
         Array.from(allLabels).sort().forEach(label => {
             const isActive = this.activeFilters.has(label);
-            filterHTML.push(`<button class="tag-filter ${isActive ? 'active' : ''}" data-filter="${this.escapeHTML(label)}">${this.escapeHTML(label)}</button>`);
+            const bg = tagColors[label];
+            const style = bg ? ` style="background-color: ${bg}; color: ${this.getTagTextColor(bg)}"` : '';
+            filterHTML.push(`<button class="tag-filter ${isActive ? 'active' : ''}" data-filter="${this.escapeHTML(label)}"${style}>${this.escapeHTML(label)}</button>`);
         });
 
         this.elements.tagFilterContainer.innerHTML = filterHTML.join('');
@@ -1765,6 +2254,12 @@ class EisenMatrixController {
 
     updateURLParams() {
         const params = new URLSearchParams();
+
+        // Profile param first (only for non-default)
+        if (this.currentProfileName !== 'default') {
+            params.set('profile', this.currentProfileName);
+        }
+
         const view = this.getCurrentView();
         if (view !== 'matrix') params.set('view', view);
 
@@ -1788,6 +2283,17 @@ class EisenMatrixController {
 
     applyURLParams(isPopstate) {
         const params = new URLSearchParams(window.location.search);
+
+        // Handle profile param on popstate
+        const urlProfile = params.get('profile') || 'default';
+        if (urlProfile !== this.currentProfileName && /^[a-zA-Z0-9]+$/.test(urlProfile)) {
+            const profiles = this.getProfiles();
+            if (profiles.find(p => p.name === urlProfile)) {
+                this.switchProfile(urlProfile);
+                return;
+            }
+        }
+
         const view = params.get('view') || 'matrix';
         const search = params.get('search') || '';
         const tags = params.get('tags');
@@ -2003,8 +2509,13 @@ class EisenMatrixController {
         const isCollapsed = this.collapsedTasks.has(task.id);
         const collapseIcon = isCollapsed ? '▸' : '▾';
 
+        const tagColors = this.getTagColors();
         const tagsHTML = task.labels.length > 0
-            ? `<div class="task-tags">${task.labels.map(label => `<span class="task-tag">${this.escapeHTML(label)}</span>`).join('')}</div>`
+            ? `<div class="task-tags">${task.labels.map(label => {
+                const bg = tagColors[label];
+                const style = bg ? ` style="background-color: ${bg}; color: ${this.getTagTextColor(bg)}"` : '';
+                return `<span class="task-tag"${style}>${this.escapeHTML(label)}</span>`;
+            }).join('')}</div>`
             : '';
 
         const linksHTML = task.urls.length > 0
@@ -2141,9 +2652,12 @@ class EisenMatrixController {
         const filterHTML = [`<button class="tag-filter ${isAllActive ? 'active' : ''}" data-filter="all">ALL</button>`];
         filterHTML.push(`<button class="tag-filter ${isNoTagsActive ? 'active' : ''}" data-filter="__no_tags__">NO TAGS</button>`);
         
+        const tagColors = this.getTagColors();
         Array.from(allLabels).sort().forEach(label => {
             const isActive = this.archiveActiveFilters.has(label);
-            filterHTML.push(`<button class="tag-filter ${isActive ? 'active' : ''}" data-filter="${this.escapeHTML(label)}">${this.escapeHTML(label)}</button>`);
+            const bg = tagColors[label];
+            const style = bg ? ` style="background-color: ${bg}; color: ${this.getTagTextColor(bg)}"` : '';
+            filterHTML.push(`<button class="tag-filter ${isActive ? 'active' : ''}" data-filter="${this.escapeHTML(label)}"${style}>${this.escapeHTML(label)}</button>`);
         });
 
         this.elements.archiveTagFilterContainer.innerHTML = filterHTML.join('');
@@ -2184,8 +2698,13 @@ class EisenMatrixController {
         const statusConfig = this.getStatusConfig(task.quadrant);
         const completedLabel = statusConfig['done'] || 'COMPLETED';
 
+        const tagColors = this.getTagColors();
         const tagsHTML = task.labels.length > 0
-            ? `<div class="task-tags">${task.labels.map(label => `<span class="task-tag">${this.escapeHTML(label)}</span>`).join('')}</div>`
+            ? `<div class="task-tags">${task.labels.map(label => {
+                const bg = tagColors[label];
+                const style = bg ? ` style="background-color: ${bg}; color: ${this.getTagTextColor(bg)}"` : '';
+                return `<span class="task-tag"${style}>${this.escapeHTML(label)}</span>`;
+            }).join('')}</div>`
             : '';
 
         const linksHTML = task.urls.length > 0
@@ -2228,4 +2747,8 @@ if (document.readyState === 'loading') {
     });
 } else {
     new EisenMatrixController();
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { EisenMatrixController };
 }
