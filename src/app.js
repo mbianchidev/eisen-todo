@@ -528,7 +528,9 @@ class EisenMatrixController {
             return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
         };
         const luminance = 0.2126 * toLinear(rgb.r) + 0.7152 * toLinear(rgb.g) + 0.0722 * toLinear(rgb.b);
-        return luminance > 0.179 ? '#000000' : '#FFFFFF';
+        // W3C WCAG contrast threshold for choosing black vs white text
+        const WCAG_LUMINANCE_THRESHOLD = 0.179;
+        return luminance > WCAG_LUMINANCE_THRESHOLD ? '#000000' : '#FFFFFF';
     }
 
     getTagColors() {
