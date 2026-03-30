@@ -6,9 +6,15 @@ import path from 'path';
 const htmlPath = path.resolve(__dirname, '..', 'src', 'index.html');
 const fullHTML = fs.readFileSync(htmlPath, 'utf-8');
 
-// Extract body content between <body> and </body>, excluding the <script> tag
+// Extract body content between <body> and </body>, excluding <script> tags.
+// Use a loop to handle any nested or residual script tags safely.
 const bodyMatch = fullHTML.match(/<body>([\s\S]*)<\/body>/i);
-const bodyContent = bodyMatch[1].replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+let bodyContent = bodyMatch[1];
+let prev;
+do {
+    prev = bodyContent;
+    bodyContent = bodyContent.replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '');
+} while (bodyContent !== prev);
 
 // Mock matchMedia before loading the module
 window.matchMedia = window.matchMedia || function () {
@@ -413,17 +419,8 @@ describe('Export/Import', () => {
             tagColors: { test: '#aabbcc' }
         };
 
-        // Simulate file import by calling the reader.onload callback directly
-        const fileContent = JSON.stringify(importPayload);
-        const mockEvt = {
-            target: {
-                files: [new Blob([fileContent], { type: 'application/json' })],
-                result: fileContent,
-                value: 'test.json'
-            }
-        };
-
         // Directly invoke the parsing logic
+        const fileContent = JSON.stringify(importPayload);
         const data = JSON.parse(fileContent);
 
         // Simulate v1 import logic
