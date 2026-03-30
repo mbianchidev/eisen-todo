@@ -633,8 +633,8 @@ body {
 }
 
 .task-tag:hover {
-    filter: brightness(1.2);
-    border-color: var(--accent-electric);
+    filter: brightness(0.85);
+    outline: 1px solid var(--text-primary);
 }
 
 .task-links {
