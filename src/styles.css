@@ -243,6 +243,8 @@ body {
     background: var(--text-primary);
     color: var(--primary-bg);
     box-shadow: var(--shadow-brutal-sm);
+    outline: 2px solid var(--text-primary);
+    outline-offset: 2px;
 }
 
 /* === TASK COUNTER === */

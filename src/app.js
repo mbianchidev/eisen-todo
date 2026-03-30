@@ -1044,6 +1044,7 @@ class EisenMatrixController {
                 task.labels = labels;
                 task.urls = urls;
                 this.persistDataToStorage(dataStore);
+                this.ensureTagColors(labels);
             }
         }
 
@@ -2029,6 +2030,7 @@ class EisenMatrixController {
             task.labels = labels;
             task.urls = urls;
             this.persistBacklogData(backlog);
+            this.ensureTagColors(labels);
         }
         this.renderBacklogList();
     }
@@ -2201,7 +2203,9 @@ class EisenMatrixController {
                 this.updateURLParams();
             });
         });
-    }    updateTagFilterDisplay() {
+    }
+
+    updateTagFilterDisplay() {
         const dataStore = this.retrieveStoredData();
         const allLabels = new Set();
         
