@@ -18,6 +18,7 @@
                 <h1 class="logo">EISENTODO</h1>
             </a>
             <p class="tagline">Stop wondering what to do next</p>
+            <span class="profile-indicator" id="profileIndicator"></span>
         </div>
         
         <div class="action-cluster">
@@ -299,6 +300,18 @@
         </div>
 
         <div class="profile-content">
+            <!-- Profiles -->
+            <section class="settings-section">
+                <h3 class="settings-section-title">PROFILES</h3>
+                <div class="settings-actions" id="profileSettingsContainer"></div>
+            </section>
+
+            <!-- Tag Colors -->
+            <section class="settings-section" id="tagColorSection" style="display:none;">
+                <h3 class="settings-section-title">TAG COLORS</h3>
+                <div class="settings-actions" id="tagColorSettingsContainer"></div>
+            </section>
+
             <!-- Appearance -->
             <section class="settings-section">
                 <h3 class="settings-section-title">APPEARANCE</h3>
@@ -334,6 +347,7 @@
                         <div class="settings-card-info">
                             <strong>Download your data</strong>
                             <p>Export all tasks, backlog, and settings as a JSON file.</p>
+                            <div id="exportDropdownContainer" style="margin-top: 0.5rem;"></div>
                         </div>
                         <button class="ctrl-btn settings-btn" id="exportDataBtn">↓ EXPORT</button>
                     </div>

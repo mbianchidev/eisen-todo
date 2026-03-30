@@ -108,6 +108,19 @@ body {
     text-transform: uppercase;
 }
 
+.profile-indicator {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent-acid);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    display: none;
+}
+
+.profile-indicator.visible {
+    display: inline;
+}
+
 .action-cluster {
     display: flex;
     gap: 1rem;
@@ -618,9 +631,8 @@ body {
 }
 
 .task-tag:hover {
-    background: var(--accent-electric);
+    filter: brightness(1.2);
     border-color: var(--accent-electric);
-    color: #FFFFFF;
 }
 
 .task-links {

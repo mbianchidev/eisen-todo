@@ -40,6 +40,7 @@ class EisenMatrixController {
     initializeApplication() {
         this.initializeProfile();
         this.bindUIElements();
+        this.updateProfileIndicator();
         this.loadCollapsedState();
         this.loadCollapsedQuadrantsState();
         this.attachEventHandlers();
@@ -117,7 +118,8 @@ class EisenMatrixController {
             archiveSearchInput: document.getElementById('archiveSearchInput'),
             archiveTagFilterContainer: document.getElementById('archiveTagFilterContainer'),
             archiveTaskCounter: document.getElementById('archiveTaskCounter'),
-            appFooter: document.getElementById('appFooter')
+            appFooter: document.getElementById('appFooter'),
+            profileIndicator: document.getElementById('profileIndicator')
         };
     }
 
@@ -374,6 +376,18 @@ class EisenMatrixController {
         this.tagColorsKey = keys.tagColorsKey;
     }
 
+    updateProfileIndicator() {
+        const el = this.elements && this.elements.profileIndicator;
+        if (!el) return;
+        if (this.currentProfileName !== 'default') {
+            el.textContent = `profile: ${this.currentProfileName}`;
+            el.classList.add('visible');
+        } else {
+            el.textContent = '';
+            el.classList.remove('visible');
+        }
+    }
+
     getProfiles() {
         const raw = localStorage.getItem(this.profilesKey);
         if (!raw) return [];
@@ -413,6 +427,7 @@ class EisenMatrixController {
         this.loadCollapsedQuadrantsState();
         this.loadDrafts();
         this.applyCollapsedQuadrants();
+        this.updateProfileIndicator();
         this.updateURLParams();
         this.renderApplicationState();
     }
@@ -567,42 +582,42 @@ class EisenMatrixController {
     // --- Profile settings UI ---
 
     renderProfileSettings() {
-        let container = document.getElementById('profileSettingsContainer');
-        if (!container) {
-            container = document.createElement('div');
-            container.id = 'profileSettingsContainer';
-            const exportBtn = this.elements.exportDataBtn;
-            if (exportBtn && exportBtn.parentNode) {
-                exportBtn.parentNode.insertBefore(container, exportBtn);
-            }
-        }
+        const container = document.getElementById('profileSettingsContainer');
+        if (!container) return;
 
         const profiles = this.getProfiles();
         const current = this.currentProfileName;
 
-        let html = `<h3 style="margin: 1rem 0 0.5rem; font-family: Space Mono, monospace;">PROFILES</h3>`;
-        html += `<div style="margin-bottom: 1rem;">`;
+        let html = '';
 
         profiles.forEach(p => {
             const isCurrent = p.name === current;
             const indicator = isCurrent ? ' ◀ current' : '';
-            html += `<div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.25rem 0; font-family: Space Mono, monospace;">`;
-            html += `<span style="flex: 1; font-weight: ${isCurrent ? 'bold' : 'normal'};">${this.escapeHTML(p.name)}${indicator}</span>`;
+            html += `<div class="settings-card">`;
+            html += `<div class="settings-card-info">`;
+            html += `<strong style="${isCurrent ? 'color: var(--accent-electric);' : ''}">${this.escapeHTML(p.name)}${indicator}</strong>`;
+            html += `</div>`;
+            html += `<div style="display: flex; gap: 0.5rem;">`;
             if (!isCurrent) {
-                html += `<button class="profile-switch-btn" data-profile="${this.escapeHTML(p.name)}" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; cursor: pointer;">SWITCH</button>`;
+                html += `<button class="ctrl-btn settings-btn profile-switch-btn" data-profile="${this.escapeHTML(p.name)}">SWITCH</button>`;
             }
             if (p.name !== 'default') {
-                html += `<button class="profile-delete-btn" data-profile="${this.escapeHTML(p.name)}" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; cursor: pointer; color: #e53e3e;">DELETE</button>`;
+                html += `<button class="ctrl-btn settings-btn settings-btn-danger profile-delete-btn" data-profile="${this.escapeHTML(p.name)}">DELETE</button>`;
             }
+            html += `</div>`;
             html += `</div>`;
         });
 
+        html += `<div class="settings-card">`;
+        html += `<div class="settings-card-info">`;
+        html += `<strong>Create new profile</strong>`;
+        html += `<p>Only letters and numbers allowed.</p>`;
         html += `</div>`;
-        html += `<div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">`;
-        html += `<input type="text" id="newProfileInput" placeholder="New profile name" style="flex: 1; padding: 0.3rem 0.5rem; font-family: Space Mono, monospace;" />`;
-        html += `<button id="createProfileBtn" style="padding: 0.3rem 0.75rem; cursor: pointer; font-family: Space Mono, monospace;">CREATE</button>`;
+        html += `<div style="display: flex; gap: 0.5rem; align-items: center;">`;
+        html += `<input type="text" id="newProfileInput" placeholder="Profile name" style="padding: 0.3rem 0.5rem; font-family: Space Mono, monospace; border: 2px solid var(--border-color, #ccc);" />`;
+        html += `<button class="ctrl-btn settings-btn" id="createProfileBtn">+ CREATE</button>`;
         html += `</div>`;
-        html += `<hr style="margin: 1rem 0; border-color: var(--border-color, #ccc);" />`;
+        html += `</div>`;
 
         container.innerHTML = html;
 
@@ -643,38 +658,32 @@ class EisenMatrixController {
     }
 
     renderTagColorSettings() {
-        let container = document.getElementById('tagColorSettingsContainer');
-        if (!container) {
-            container = document.createElement('div');
-            container.id = 'tagColorSettingsContainer';
-            const profileContainer = document.getElementById('profileSettingsContainer');
-            if (profileContainer && profileContainer.parentNode) {
-                profileContainer.parentNode.insertBefore(container, profileContainer.nextSibling);
-            }
-        }
+        const container = document.getElementById('tagColorSettingsContainer');
+        const section = document.getElementById('tagColorSection');
+        if (!container) return;
 
         const colors = this.getTagColors();
         const tagNames = Object.keys(colors).sort();
 
         if (tagNames.length === 0) {
             container.innerHTML = '';
+            if (section) section.style.display = 'none';
             return;
         }
 
-        let html = `<h3 style="margin: 1rem 0 0.5rem; font-family: Space Mono, monospace;">TAG COLORS</h3>`;
-        html += `<div style="margin-bottom: 1rem;">`;
+        if (section) section.style.display = '';
 
+        let html = '';
         tagNames.forEach(tag => {
             const color = colors[tag];
             const textColor = this.getTagTextColor(color);
-            html += `<div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.25rem 0; font-family: Space Mono, monospace;">`;
-            html += `<span class="task-tag" style="background-color: ${color}; color: ${textColor}; min-width: 80px; text-align: center;">${this.escapeHTML(tag)}</span>`;
-            html += `<input type="color" class="tag-color-picker" data-tag="${this.escapeHTML(tag)}" value="${color}" style="width: 32px; height: 24px; border: none; cursor: pointer;" />`;
+            html += `<div class="settings-card">`;
+            html += `<div class="settings-card-info">`;
+            html += `<span class="task-tag" style="background-color: ${color}; color: ${textColor}; border-color: ${color};">${this.escapeHTML(tag)}</span>`;
+            html += `</div>`;
+            html += `<input type="color" class="tag-color-picker" data-tag="${this.escapeHTML(tag)}" value="${color}" style="width: 40px; height: 30px; border: none; cursor: pointer; padding: 0;" />`;
             html += `</div>`;
         });
-
-        html += `</div>`;
-        html += `<hr style="margin: 1rem 0; border-color: var(--border-color, #ccc);" />`;
 
         container.innerHTML = html;
 
@@ -688,18 +697,12 @@ class EisenMatrixController {
     }
 
     renderExportDropdown() {
-        let container = document.getElementById('exportDropdownContainer');
-        if (!container) {
-            container = document.createElement('div');
-            container.id = 'exportDropdownContainer';
-            if (this.elements.exportDataBtn && this.elements.exportDataBtn.parentNode) {
-                this.elements.exportDataBtn.parentNode.insertBefore(container, this.elements.exportDataBtn);
-            }
-        }
+        const container = document.getElementById('exportDropdownContainer');
+        if (!container) return;
 
         const profiles = this.getProfiles();
-        let html = `<label style="font-family: Space Mono, monospace; font-size: 0.85rem; margin-right: 0.5rem;">Export scope:</label>`;
-        html += `<select id="exportScopeSelect" style="font-family: Space Mono, monospace; padding: 0.2rem; margin-bottom: 0.5rem;">`;
+        let html = `<label style="font-family: Space Mono, monospace; font-size: 0.75rem;">Export scope: </label>`;
+        html += `<select id="exportScopeSelect" style="font-family: Space Mono, monospace; font-size: 0.75rem; padding: 0.2rem;">`;
         html += `<option value="all">All Profiles</option>`;
         profiles.forEach(p => {
             html += `<option value="${this.escapeHTML(p.name)}">${this.escapeHTML(p.name)}</option>`;
