@@ -7,14 +7,18 @@ const htmlPath = path.resolve(__dirname, '..', 'src', 'index.html');
 const fullHTML = fs.readFileSync(htmlPath, 'utf-8');
 
 // Extract body content between <body> and </body>, excluding <script> tags.
-// Use a loop to handle any nested or residual script tags safely.
-const bodyMatch = fullHTML.match(/<body>([\s\S]*)<\/body>/i);
-let bodyContent = bodyMatch[1];
-let prev;
-do {
-    prev = bodyContent;
-    bodyContent = bodyContent.replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '');
-} while (bodyContent !== prev);
+// Use DOM parsing instead of regex to safely remove all <script> elements.
+const wrapper = document.implementation.createHTMLDocument('test-wrapper');
+wrapper.documentElement.innerHTML = fullHTML;
+const bodyElement = wrapper.body || wrapper.getElementsByTagName('body')[0];
+let bodyContent = '';
+if (bodyElement) {
+    const scripts = bodyElement.querySelectorAll('script');
+    scripts.forEach((script) => {
+        script.remove();
+    });
+    bodyContent = bodyElement.innerHTML;
+}
 
 // Mock matchMedia before loading the module
 window.matchMedia = window.matchMedia || function () {
