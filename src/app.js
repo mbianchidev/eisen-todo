@@ -119,7 +119,10 @@ class EisenMatrixController {
             archiveTagFilterContainer: document.getElementById('archiveTagFilterContainer'),
             archiveTaskCounter: document.getElementById('archiveTaskCounter'),
             appFooter: document.getElementById('appFooter'),
-            profileIndicator: document.getElementById('profileIndicator')
+            profileIndicator: document.getElementById('profileIndicator'),
+            profileAvatarBtn: document.getElementById('profileAvatarBtn'),
+            profileDropdown: document.getElementById('profileDropdown'),
+            profileSwitcher: document.getElementById('profileSwitcher')
         };
     }
 
@@ -183,6 +186,15 @@ class EisenMatrixController {
         // Profile / Settings
         this.elements.profileBtn.addEventListener('click', () => this.displayProfileView());
         this.elements.closeProfileBtn.addEventListener('click', () => this.hideProfileView());
+        this.elements.profileAvatarBtn.addEventListener('click', (evt) => {
+            evt.stopPropagation();
+            this.toggleProfileDropdown();
+        });
+        document.addEventListener('click', (evt) => {
+            if (this.elements.profileSwitcher && !this.elements.profileSwitcher.contains(evt.target)) {
+                this.closeProfileDropdown();
+            }
+        });
         this.elements.exportDataBtn.addEventListener('click', () => this.exportAllData());
         this.elements.importDataBtn.addEventListener('click', () => this.elements.importFileInput.click());
         this.elements.importFileInput.addEventListener('change', (evt) => this.importData(evt));
@@ -386,6 +398,46 @@ class EisenMatrixController {
             el.textContent = '';
             el.classList.remove('visible');
         }
+    }
+
+    toggleProfileDropdown() {
+        const dd = this.elements.profileDropdown;
+        if (!dd) return;
+        if (dd.classList.contains('open')) {
+            this.closeProfileDropdown();
+        } else {
+            this.renderProfileDropdown();
+            dd.classList.add('open');
+        }
+    }
+
+    closeProfileDropdown() {
+        const dd = this.elements.profileDropdown;
+        if (dd) dd.classList.remove('open');
+    }
+
+    renderProfileDropdown() {
+        const dd = this.elements.profileDropdown;
+        if (!dd) return;
+        const profiles = this.getProfiles();
+        const current = this.currentProfileName;
+        let html = '';
+        profiles.forEach(p => {
+            const isCurrent = p.name === current;
+            const cls = isCurrent ? ' active' : '';
+            const check = isCurrent ? '<span class="check-mark">✓</span>' : '';
+            html += `<div class="profile-dropdown-item${cls}" data-profile="${this.escapeHTML(p.name)}">${this.escapeHTML(p.name)}${check}</div>`;
+        });
+        dd.innerHTML = html;
+        dd.querySelectorAll('.profile-dropdown-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const name = item.dataset.profile;
+                if (name !== current) {
+                    this.switchProfile(name);
+                }
+                this.closeProfileDropdown();
+            });
+        });
     }
 
     getProfiles() {
