@@ -610,3 +610,690 @@ describe('Tag Color Rendering', () => {
         expect(tagSpan.style.backgroundColor).toBeTruthy();
     });
 });
+
+// ============================================================
+// 7. Quick Input Parsing
+// ============================================================
+describe('Quick Input Parsing', () => {
+    let app;
+
+    beforeEach(() => {
+        localStorage.clear();
+        setupDOM();
+        history.replaceState(null, '', '/');
+        app = createApp();
+    });
+
+    it('parses plain text with no tags or URLs', () => {
+        const result = app.parseQuickInput('Buy groceries');
+        expect(result.content).toBe('Buy groceries');
+        expect(result.labels).toEqual([]);
+        expect(result.urls).toEqual([]);
+    });
+
+    it('extracts hashtags as labels', () => {
+        const result = app.parseQuickInput('Fix login bug #work #urgent');
+        expect(result.content).toBe('Fix login bug');
+        expect(result.labels).toEqual(['work', 'urgent']);
+    });
+
+    it('extracts URLs', () => {
+        const result = app.parseQuickInput('Check docs https://example.com/page');
+        expect(result.content).toBe('Check docs');
+        expect(result.urls).toEqual(['https://example.com/page']);
+    });
+
+    it('handles tags and URLs together', () => {
+        const result = app.parseQuickInput('Review PR #dev https://github.com/pr/1');
+        expect(result.content).toBe('Review PR');
+        expect(result.labels).toEqual(['dev']);
+        expect(result.urls).toEqual(['https://github.com/pr/1']);
+    });
+
+    it('does not treat URL fragments as tags', () => {
+        const result = app.parseQuickInput('See https://example.com/page#section');
+        expect(result.content).toBe('See');
+        expect(result.labels).toEqual([]);
+        expect(result.urls).toEqual(['https://example.com/page#section']);
+    });
+
+    it('trims extra whitespace', () => {
+        const result = app.parseQuickInput('  spaced   out   text  ');
+        expect(result.content).toBe('spaced out text');
+    });
+});
+
+// ============================================================
+// 8. Quadrant Derivation
+// ============================================================
+describe('Quadrant Derivation', () => {
+    let app;
+
+    beforeEach(() => {
+        localStorage.clear();
+        setupDOM();
+        app = createApp();
+    });
+
+    it('urgent + important → urgent-important', () => {
+        expect(app.deriveQuadrant(true, true)).toBe('urgent-important');
+    });
+
+    it('not urgent + important → not-urgent-important', () => {
+        expect(app.deriveQuadrant(false, true)).toBe('not-urgent-important');
+    });
+
+    it('urgent + not important → urgent-not-important', () => {
+        expect(app.deriveQuadrant(true, false)).toBe('urgent-not-important');
+    });
+
+    it('not urgent + not important → not-urgent-not-important', () => {
+        expect(app.deriveQuadrant(false, false)).toBe('not-urgent-not-important');
+    });
+});
+
+// ============================================================
+// 9. Task CRUD and Status Lifecycle
+// ============================================================
+describe('Task CRUD and Status Lifecycle', () => {
+    let app;
+
+    beforeEach(() => {
+        localStorage.clear();
+        setupDOM();
+        history.replaceState(null, '', '/');
+        app = createApp();
+    });
+
+    it('retrieveStoredData() returns empty structure when no data exists', () => {
+        const data = app.retrieveStoredData();
+        expect(data.activeTasks).toEqual([]);
+        expect(data.completedTasks).toEqual([]);
+    });
+
+    it('persistDataToStorage() and retrieveStoredData() round-trip', () => {
+        const tasks = {
+            activeTasks: [{ id: 't1', content: 'Task 1', quadrant: 'urgent-important', labels: [], urls: [], status: 'todo' }],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+        expect(app.retrieveStoredData()).toEqual(tasks);
+    });
+
+    it('generateUniqueIdentifier() returns unique IDs', () => {
+        const id1 = app.generateUniqueIdentifier();
+        const id2 = app.generateUniqueIdentifier();
+        expect(id1).not.toBe(id2);
+        expect(id1).toMatch(/^task_/);
+    });
+
+    it('advanceTaskStatus() moves todo → in-progress', () => {
+        const tasks = {
+            activeTasks: [{ id: 't1', content: 'Test', quadrant: 'not-urgent-important', labels: [], urls: [], status: 'todo' }],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+
+        app.advanceTaskStatus('t1');
+
+        const result = app.retrieveStoredData();
+        expect(result.activeTasks[0].status).toBe('in-progress');
+    });
+
+    it('advanceTaskStatus() moves in-progress → done (completed)', () => {
+        const tasks = {
+            activeTasks: [{ id: 't1', content: 'Test', quadrant: 'not-urgent-important', labels: [], urls: [], status: 'in-progress' }],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+
+        app.advanceTaskStatus('t1');
+
+        const result = app.retrieveStoredData();
+        expect(result.activeTasks).toHaveLength(0);
+        expect(result.completedTasks).toHaveLength(1);
+        expect(result.completedTasks[0].status).toBe('done');
+        expect(result.completedTasks[0].completedAt).toBeDefined();
+    });
+
+    it('advanceTaskStatus() blocks second in-progress in urgent-important quadrant', () => {
+        const tasks = {
+            activeTasks: [
+                { id: 't1', content: 'First', quadrant: 'urgent-important', labels: [], urls: [], status: 'in-progress' },
+                { id: 't2', content: 'Second', quadrant: 'urgent-important', labels: [], urls: [], status: 'todo' }
+            ],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+
+        app.advanceTaskStatus('t2');
+
+        const result = app.retrieveStoredData();
+        expect(result.activeTasks.find(t => t.id === 't2').status).toBe('todo');
+    });
+
+    it('revertTaskStatus() moves in-progress → todo', () => {
+        const tasks = {
+            activeTasks: [{ id: 't1', content: 'Test', quadrant: 'not-urgent-important', labels: [], urls: [], status: 'in-progress' }],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+
+        app.revertTaskStatus('t1');
+
+        const result = app.retrieveStoredData();
+        expect(result.activeTasks[0].status).toBe('todo');
+    });
+
+    it('restoreCompletedTask() moves a completed task back to active', () => {
+        const tasks = {
+            activeTasks: [],
+            completedTasks: [{ id: 'c1', content: 'Archived', quadrant: 'urgent-important', labels: [], urls: [], status: 'done', completedAt: '2025-01-01T00:00:00.000Z' }]
+        };
+        app.persistDataToStorage(tasks);
+
+        app.restoreCompletedTask('c1');
+
+        const result = app.retrieveStoredData();
+        expect(result.completedTasks).toHaveLength(0);
+        expect(result.activeTasks).toHaveLength(1);
+        expect(result.activeTasks[0].status).toBe('todo');
+        expect(result.activeTasks[0].completedAt).toBeUndefined();
+    });
+});
+
+// ============================================================
+// 10. Delete and Archive Flows
+// ============================================================
+describe('Delete and Archive Flows', () => {
+    let app;
+
+    beforeEach(() => {
+        localStorage.clear();
+        setupDOM();
+        history.replaceState(null, '', '/');
+        app = createApp();
+    });
+
+    it('executeDelete() removes an active task', () => {
+        const tasks = {
+            activeTasks: [
+                { id: 't1', content: 'Keep', quadrant: 'urgent-important', labels: [], urls: [], status: 'todo' },
+                { id: 't2', content: 'Remove', quadrant: 'not-urgent-important', labels: [], urls: [], status: 'todo' }
+            ],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+
+        app.pendingDeleteTaskId = 't2';
+        app.pendingDeleteSource = 'main';
+        app.executeDelete();
+
+        const result = app.retrieveStoredData();
+        expect(result.activeTasks).toHaveLength(1);
+        expect(result.activeTasks[0].id).toBe('t1');
+    });
+
+    it('archiveInsteadOfDelete() moves task to completed', () => {
+        const tasks = {
+            activeTasks: [{ id: 't1', content: 'Archive me', quadrant: 'urgent-important', labels: [], urls: [], status: 'todo' }],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+
+        app.pendingDeleteTaskId = 't1';
+        app.archiveInsteadOfDelete();
+
+        const result = app.retrieveStoredData();
+        expect(result.activeTasks).toHaveLength(0);
+        expect(result.completedTasks).toHaveLength(1);
+        expect(result.completedTasks[0].status).toBe('done');
+    });
+
+    it('cancelDelete() clears pending state', () => {
+        app.pendingDeleteTaskId = 't1';
+        app.pendingDeleteSource = 'main';
+        app.cancelDelete();
+        expect(app.pendingDeleteTaskId).toBeNull();
+        expect(app.pendingDeleteSource).toBeNull();
+    });
+
+    it('executeDelete() for archive source removes from completedTasks', () => {
+        const tasks = {
+            activeTasks: [],
+            completedTasks: [{ id: 'c1', content: 'Old', quadrant: 'urgent-important', labels: [], urls: [], status: 'done' }]
+        };
+        app.persistDataToStorage(tasks);
+
+        app.pendingDeleteTaskId = 'c1';
+        app.pendingDeleteSource = 'archive';
+        app.executeDelete();
+
+        const result = app.retrieveStoredData();
+        expect(result.completedTasks).toHaveLength(0);
+    });
+});
+
+// ============================================================
+// 11. Backlog Management
+// ============================================================
+describe('Backlog Management', () => {
+    let app;
+
+    beforeEach(() => {
+        localStorage.clear();
+        setupDOM();
+        history.replaceState(null, '', '/');
+        app = createApp();
+    });
+
+    it('retrieveBacklogData() returns empty array when no data', () => {
+        expect(app.retrieveBacklogData()).toEqual([]);
+    });
+
+    it('persistBacklogData() and retrieveBacklogData() round-trip', () => {
+        const items = [
+            { id: 'b1', content: 'Backlog item', labels: ['test'], urls: [] }
+        ];
+        app.persistBacklogData(items);
+        expect(app.retrieveBacklogData()).toEqual(items);
+    });
+
+    it('moveBacklogTaskToQuadrant() moves task from backlog to main', () => {
+        const backlog = [
+            { id: 'b1', content: 'Promote me', labels: ['dev'], urls: [], createdAt: '2025-01-01T00:00:00.000Z' }
+        ];
+        app.persistBacklogData(backlog);
+
+        app.moveBacklogTaskToQuadrant('b1', 'urgent-important');
+
+        expect(app.retrieveBacklogData()).toHaveLength(0);
+        const tasks = app.retrieveStoredData();
+        expect(tasks.activeTasks).toHaveLength(1);
+        expect(tasks.activeTasks[0].quadrant).toBe('urgent-important');
+        expect(tasks.activeTasks[0].status).toBe('todo');
+    });
+
+    it('deleteBacklogTask() removes a backlog task', () => {
+        const backlog = [
+            { id: 'b1', content: 'Keep', labels: [], urls: [] },
+            { id: 'b2', content: 'Delete', labels: [], urls: [] }
+        ];
+        app.persistBacklogData(backlog);
+
+        app.deleteBacklogTask('b2');
+
+        const result = app.retrieveBacklogData();
+        expect(result).toHaveLength(1);
+        expect(result[0].id).toBe('b1');
+    });
+});
+
+// ============================================================
+// 12. Theme Management
+// ============================================================
+describe('Theme Management', () => {
+    let app;
+
+    beforeEach(() => {
+        localStorage.clear();
+        setupDOM();
+        history.replaceState(null, '', '/');
+        app = createApp();
+    });
+
+    it('defaults to light theme', () => {
+        expect(app.currentTheme).toBe('light');
+    });
+
+    it('setThemePreference() persists to localStorage', () => {
+        app.setThemePreference('dark');
+        expect(localStorage.getItem('eisen_theme')).toBe('dark');
+        expect(app.themePreference).toBe('dark');
+    });
+
+    it('toggleApplicationTheme() cycles light → dark → system → light', () => {
+        expect(app.themePreference).toBe('light');
+        app.toggleApplicationTheme();
+        expect(app.themePreference).toBe('dark');
+        app.toggleApplicationTheme();
+        expect(app.themePreference).toBe('system');
+        app.toggleApplicationTheme();
+        expect(app.themePreference).toBe('light');
+    });
+
+    it('dark theme sets data-theme attribute on html', () => {
+        app.setThemePreference('dark');
+        expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    });
+
+    it('light theme removes data-theme attribute from html', () => {
+        app.setThemePreference('dark');
+        app.setThemePreference('light');
+        expect(document.documentElement.getAttribute('data-theme')).toBeNull();
+    });
+});
+
+// ============================================================
+// 13. Collapse State
+// ============================================================
+describe('Collapse State', () => {
+    let app;
+
+    beforeEach(() => {
+        localStorage.clear();
+        setupDOM();
+        history.replaceState(null, '', '/');
+        app = createApp();
+    });
+
+    it('toggleCollapse() adds task to collapsed set', () => {
+        const tasks = {
+            activeTasks: [{ id: 't1', content: 'Test', quadrant: 'urgent-important', labels: [], urls: [], status: 'todo', createdAt: new Date().toISOString() }],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+        app.renderApplicationState();
+
+        app.toggleCollapse('t1');
+        expect(app.collapsedTasks.has('t1')).toBe(true);
+    });
+
+    it('toggleCollapse() removes task from collapsed set when already collapsed', () => {
+        app.collapsedTasks.add('t1');
+        app.toggleCollapse('t1');
+        expect(app.collapsedTasks.has('t1')).toBe(false);
+    });
+
+    it('saveCollapsedState() persists and loadCollapsedState() restores', () => {
+        app.collapsedTasks.add('t1');
+        app.collapsedTasks.add('t2');
+        app.saveCollapsedState();
+
+        app.collapsedTasks.clear();
+        app.loadCollapsedState();
+        expect(app.collapsedTasks.has('t1')).toBe(true);
+        expect(app.collapsedTasks.has('t2')).toBe(true);
+    });
+
+    it('toggleCollapseAll() collapses all tasks', () => {
+        const tasks = {
+            activeTasks: [
+                { id: 't1', content: 'A', quadrant: 'urgent-important', labels: [], urls: [], status: 'todo' },
+                { id: 't2', content: 'B', quadrant: 'not-urgent-important', labels: [], urls: [], status: 'todo' }
+            ],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+
+        app.toggleCollapseAll();
+
+        expect(app.collapsedTasks.has('t1')).toBe(true);
+        expect(app.collapsedTasks.has('t2')).toBe(true);
+        expect(app.allCollapsed).toBe(true);
+    });
+
+    it('toggleCollapseAll() twice expands all tasks', () => {
+        const tasks = {
+            activeTasks: [
+                { id: 't1', content: 'A', quadrant: 'urgent-important', labels: [], urls: [], status: 'todo' },
+            ],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+
+        app.toggleCollapseAll();
+        app.toggleCollapseAll();
+
+        expect(app.collapsedTasks.size).toBe(0);
+        expect(app.allCollapsed).toBe(false);
+    });
+});
+
+// ============================================================
+// 14. Tag Filtering
+// ============================================================
+describe('Tag Filtering', () => {
+    let app;
+
+    beforeEach(() => {
+        localStorage.clear();
+        setupDOM();
+        history.replaceState(null, '', '/');
+        app = createApp();
+    });
+
+    it('toggleTagFilter() adds a tag to active filters', () => {
+        app.toggleTagFilter('work');
+        expect(app.activeFilters.has('work')).toBe(true);
+    });
+
+    it('toggleTagFilter() removes a tag when already active', () => {
+        app.activeFilters.add('work');
+        app.toggleTagFilter('work');
+        expect(app.activeFilters.has('work')).toBe(false);
+    });
+
+    it('clearTagFilters() removes all active filters', () => {
+        app.activeFilters.add('work');
+        app.activeFilters.add('personal');
+        app.clearTagFilters();
+        expect(app.activeFilters.size).toBe(0);
+    });
+});
+
+// ============================================================
+// 15. escapeHTML
+// ============================================================
+describe('escapeHTML', () => {
+    let app;
+
+    beforeEach(() => {
+        localStorage.clear();
+        setupDOM();
+        app = createApp();
+    });
+
+    it('escapes angle brackets', () => {
+        expect(app.escapeHTML('<script>alert("xss")</script>')).not.toContain('<script>');
+    });
+
+    it('escapes ampersand', () => {
+        expect(app.escapeHTML('a & b')).toContain('&amp;');
+    });
+
+    it('returns empty string for empty input', () => {
+        expect(app.escapeHTML('')).toBe('');
+    });
+
+    it('preserves normal text', () => {
+        expect(app.escapeHTML('Hello World')).toBe('Hello World');
+    });
+});
+
+// ============================================================
+// 16. Profile Dropdown (Header Switcher)
+// ============================================================
+describe('Profile Dropdown', () => {
+    let app;
+
+    beforeEach(() => {
+        localStorage.clear();
+        setupDOM();
+        history.replaceState(null, '', '/');
+        app = createApp();
+    });
+
+    it('renderProfileDropdown() populates dropdown with profiles', () => {
+        app.createProfile('work');
+        app.renderProfileDropdown();
+
+        const dd = document.getElementById('profileDropdown');
+        const items = dd.querySelectorAll('.profile-dropdown-item');
+        expect(items.length).toBe(2);
+    });
+
+    it('renderProfileDropdown() marks current profile as active', () => {
+        app.createProfile('work');
+        app.renderProfileDropdown();
+
+        const dd = document.getElementById('profileDropdown');
+        const activeItem = dd.querySelector('.profile-dropdown-item.active');
+        expect(activeItem).not.toBeNull();
+        expect(activeItem.dataset.profile).toBe('default');
+    });
+
+    it('toggleProfileDropdown() opens and closes dropdown', () => {
+        const dd = document.getElementById('profileDropdown');
+        expect(dd.classList.contains('open')).toBe(false);
+
+        app.toggleProfileDropdown();
+        expect(dd.classList.contains('open')).toBe(true);
+
+        app.toggleProfileDropdown();
+        expect(dd.classList.contains('open')).toBe(false);
+    });
+
+    it('closeProfileDropdown() closes an open dropdown', () => {
+        const dd = document.getElementById('profileDropdown');
+        dd.classList.add('open');
+
+        app.closeProfileDropdown();
+        expect(dd.classList.contains('open')).toBe(false);
+    });
+
+    it('clicking a dropdown item switches profile', () => {
+        app.createProfile('work');
+        app.renderProfileDropdown();
+
+        const dd = document.getElementById('profileDropdown');
+        const workItem = dd.querySelector('[data-profile="work"]');
+        workItem.click();
+
+        expect(app.getCurrentProfileName()).toBe('work');
+    });
+});
+
+// ============================================================
+// 17. Rendering and View Switching
+// ============================================================
+describe('Rendering and View Switching', () => {
+    let app;
+
+    beforeEach(() => {
+        localStorage.clear();
+        setupDOM();
+        history.replaceState(null, '', '/');
+        app = createApp();
+    });
+
+    it('renderApplicationState() renders tasks into quadrant zones', () => {
+        const tasks = {
+            activeTasks: [
+                { id: 't1', content: 'Do first task', quadrant: 'urgent-important', labels: [], urls: [], status: 'todo', createdAt: new Date().toISOString() },
+                { id: 't2', content: 'Schedule task', quadrant: 'not-urgent-important', labels: [], urls: [], status: 'todo', createdAt: new Date().toISOString() }
+            ],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+        app.renderApplicationState();
+
+        const urgentImportant = document.querySelector('.task-zone[data-zone="urgent-important"]');
+        expect(urgentImportant.innerHTML).toContain('Do first task');
+
+        const notUrgentImportant = document.querySelector('.task-zone[data-zone="not-urgent-important"]');
+        expect(notUrgentImportant.innerHTML).toContain('Schedule task');
+    });
+
+    it('displayArchiveView() shows archive and hides main', () => {
+        app.displayArchiveView();
+        expect(app.elements.archiveView.classList.contains('hidden')).toBe(false);
+        expect(app.elements.mainMatrix.classList.contains('hidden')).toBe(true);
+    });
+
+    it('hideArchiveView() shows main and hides archive', () => {
+        app.displayArchiveView();
+        app.hideArchiveView();
+        expect(app.elements.mainMatrix.classList.contains('hidden')).toBe(false);
+        expect(app.elements.archiveView.classList.contains('hidden')).toBe(true);
+    });
+
+    it('displayBacklogView() shows backlog and hides main', () => {
+        app.displayBacklogView();
+        expect(app.elements.backlogView.classList.contains('hidden')).toBe(false);
+        expect(app.elements.mainMatrix.classList.contains('hidden')).toBe(true);
+    });
+
+    it('navigateHome() returns to main matrix view', () => {
+        app.displayArchiveView();
+        app.navigateHome();
+        expect(app.elements.mainMatrix.classList.contains('hidden')).toBe(false);
+        expect(app.elements.archiveView.classList.contains('hidden')).toBe(true);
+    });
+
+    it('getCurrentView() returns correct view name', () => {
+        expect(app.getCurrentView()).toBe('matrix');
+        app.displayArchiveView();
+        expect(app.getCurrentView()).toBe('archive');
+        app.navigateHome();
+        app.displayBacklogView();
+        expect(app.getCurrentView()).toBe('backlog');
+    });
+});
+
+// ============================================================
+// 18. Data Integrity Edge Cases
+// ============================================================
+describe('Data Integrity Edge Cases', () => {
+    let app;
+
+    beforeEach(() => {
+        localStorage.clear();
+        setupDOM();
+        history.replaceState(null, '', '/');
+        app = createApp();
+    });
+
+    it('retrieveStoredData() handles corrupted JSON gracefully', () => {
+        localStorage.setItem(app.storageKey, 'not-json');
+        const data = app.retrieveStoredData();
+        expect(data.activeTasks).toEqual([]);
+        expect(data.completedTasks).toEqual([]);
+    });
+
+    it('getProfiles() handles corrupted JSON gracefully', () => {
+        localStorage.setItem(app.profilesKey, '{bad-json');
+        expect(app.getProfiles()).toEqual([]);
+    });
+
+    it('retrieveBacklogData() handles corrupted JSON gracefully', () => {
+        localStorage.setItem(app.backlogKey, 'not-json');
+        expect(app.retrieveBacklogData()).toEqual([]);
+    });
+
+    it('advanceTaskStatus() is a no-op for non-existent task', () => {
+        const tasks = { activeTasks: [], completedTasks: [] };
+        app.persistDataToStorage(tasks);
+        app.advanceTaskStatus('nonexistent');
+        expect(app.retrieveStoredData()).toEqual(tasks);
+    });
+
+    it('revertTaskStatus() is a no-op for non-existent task', () => {
+        const tasks = { activeTasks: [], completedTasks: [] };
+        app.persistDataToStorage(tasks);
+        app.revertTaskStatus('nonexistent');
+        expect(app.retrieveStoredData()).toEqual(tasks);
+    });
+
+    it('restoreCompletedTask() is a no-op for non-existent task', () => {
+        const tasks = { activeTasks: [], completedTasks: [] };
+        app.persistDataToStorage(tasks);
+        app.restoreCompletedTask('nonexistent');
+        expect(app.retrieveStoredData()).toEqual(tasks);
+    });
+
+    it('switchProfile() is a no-op for non-existent profile', () => {
+        app.switchProfile('nonexistent');
+        expect(app.getCurrentProfileName()).toBe('default');
+    });
+});
