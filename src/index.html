@@ -18,9 +18,19 @@
                 <h1 class="logo">EISENTODO</h1>
             </a>
             <p class="tagline">Stop wondering what to do next</p>
+            <span class="profile-indicator" id="profileIndicator"></span>
         </div>
         
         <div class="action-cluster">
+            <div class="profile-switcher" id="profileSwitcher">
+                <button class="ctrl-btn profile-avatar-btn" id="profileAvatarBtn" aria-label="Switch profile">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="8" r="4"/>
+                        <path d="M4 21v-1a6 6 0 0 1 12 0v1"/>
+                    </svg>
+                </button>
+                <div class="profile-dropdown" id="profileDropdown"></div>
+            </div>
             <button class="ctrl-btn" id="themeToggleBtn" aria-label="Toggle theme">
                 <span class="icon-theme">◐</span>
             </button>
@@ -299,6 +309,18 @@
         </div>
 
         <div class="profile-content">
+            <!-- Profiles -->
+            <section class="settings-section">
+                <h3 class="settings-section-title">PROFILES</h3>
+                <div class="settings-actions" id="profileSettingsContainer"></div>
+            </section>
+
+            <!-- Tag Colors -->
+            <section class="settings-section" id="tagColorSection" style="display:none;">
+                <h3 class="settings-section-title">TAG COLORS</h3>
+                <div class="settings-actions" id="tagColorSettingsContainer"></div>
+            </section>
+
             <!-- Appearance -->
             <section class="settings-section">
                 <h3 class="settings-section-title">APPEARANCE</h3>
@@ -334,6 +356,7 @@
                         <div class="settings-card-info">
                             <strong>Download your data</strong>
                             <p>Export all tasks, backlog, and settings as a JSON file.</p>
+                            <div id="exportDropdownContainer" style="margin-top: 0.5rem;"></div>
                         </div>
                         <button class="ctrl-btn settings-btn" id="exportDataBtn">↓ EXPORT</button>
                     </div>

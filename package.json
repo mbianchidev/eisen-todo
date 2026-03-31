@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "description": "Eisenhower Matrix Todo App",
   "scripts": {
-    "start": "serve src"
+    "start": "serve src",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "serve": "^14.2.6"
@@ -11,5 +13,9 @@
   "overrides": {
     "minimatch": "3.1.5",
     "ajv": "8.18.0"
+  },
+  "devDependencies": {
+    "jsdom": "^29.0.1",
+    "vitest": "^4.1.2"
   }
 }
