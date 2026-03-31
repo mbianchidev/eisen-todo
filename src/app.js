@@ -2173,7 +2173,7 @@ class EisenMatrixController {
             const collapsedClass = isCollapsed ? ' collapsed' : '';
 
             const tagsHTML = task.labels && task.labels.length > 0
-                ? `<div class="task-tags">${task.labels.map(l => {
+                ? `<div class="task-tags">${[...task.labels].sort((a, b) => a.localeCompare(b)).map(l => {
                     const bg = tagColors[l];
                     const style = bg ? ` style="background-color: ${bg}; color: ${this.getTagTextColor(bg)}"` : '';
                     return `<span class="task-tag"${style}>${this.escapeHTML(l)}</span>`;
@@ -2618,7 +2618,7 @@ class EisenMatrixController {
 
         const tagColors = this.getTagColors();
         const tagsHTML = task.labels.length > 0
-            ? `<div class="task-tags">${task.labels.map(label => {
+            ? `<div class="task-tags">${[...task.labels].sort((a, b) => a.localeCompare(b)).map(label => {
                 const bg = tagColors[label];
                 const style = bg ? ` style="background-color: ${bg}; color: ${this.getTagTextColor(bg)}"` : '';
                 return `<span class="task-tag"${style}>${this.escapeHTML(label)}</span>`;
@@ -2807,7 +2807,7 @@ class EisenMatrixController {
 
         const tagColors = this.getTagColors();
         const tagsHTML = task.labels.length > 0
-            ? `<div class="task-tags">${task.labels.map(label => {
+            ? `<div class="task-tags">${[...task.labels].sort((a, b) => a.localeCompare(b)).map(label => {
                 const bg = tagColors[label];
                 const style = bg ? ` style="background-color: ${bg}; color: ${this.getTagTextColor(bg)}"` : '';
                 return `<span class="task-tag"${style}>${this.escapeHTML(label)}</span>`;

@@ -711,7 +711,10 @@ body {
     border-bottom: 2px solid var(--accent-electric);
     display: inline-block;
     transition: all 0.15s ease;
-    word-break: break-all;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .task-link:hover {
