@@ -108,10 +108,83 @@ body {
     text-transform: uppercase;
 }
 
+.profile-indicator {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent-acid);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    display: none;
+}
+
+.profile-indicator.visible {
+    display: inline;
+}
+
 .action-cluster {
     display: flex;
     gap: 1rem;
     align-items: center;
+}
+
+.profile-switcher {
+    position: relative;
+}
+
+.profile-avatar-btn {
+    padding: 0.55rem 0.7rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.profile-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 180px;
+    background: var(--primary-bg);
+    border: var(--border-medium);
+    box-shadow: var(--shadow-brutal-sm);
+    z-index: 200;
+}
+
+.profile-dropdown.open {
+    display: block;
+}
+
+.profile-dropdown-item {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    padding: 0.6rem 1rem;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--text-primary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--primary-bg);
+    color: var(--text-primary);
+}
+
+.profile-dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.profile-dropdown-item:hover {
+    background: var(--accent-acid);
+}
+
+.profile-dropdown-item.active {
+    background: var(--accent-electric);
+    color: #FFFFFF;
+    font-weight: 700;
+}
+
+.profile-dropdown-item .check-mark {
+    font-size: 0.75rem;
 }
 
 .ctrl-btn {
@@ -230,6 +303,8 @@ body {
     background: var(--text-primary);
     color: var(--primary-bg);
     box-shadow: var(--shadow-brutal-sm);
+    outline: 2px solid var(--text-primary);
+    outline-offset: 2px;
 }
 
 /* === TASK COUNTER === */
@@ -618,9 +693,8 @@ body {
 }
 
 .task-tag:hover {
-    background: var(--accent-electric);
-    border-color: var(--accent-electric);
-    color: #FFFFFF;
+    filter: brightness(0.85);
+    outline: 1px solid var(--text-primary);
 }
 
 .task-links {
