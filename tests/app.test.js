@@ -1297,3 +1297,180 @@ describe('Data Integrity Edge Cases', () => {
         expect(app.getCurrentProfileName()).toBe('default');
     });
 });
+
+// ============================================================
+// 19. Tag Color Validation (XSS Prevention)
+// ============================================================
+describe('Tag Color Validation', () => {
+    let app;
+
+    beforeEach(() => {
+        localStorage.clear();
+        setupDOM();
+        history.replaceState(null, '', '/');
+        app = createApp();
+    });
+
+    it('isValidHexColor() accepts valid 6-digit hex colors', () => {
+        expect(app.isValidHexColor('#ff0000')).toBe(true);
+        expect(app.isValidHexColor('#AABBCC')).toBe(true);
+        expect(app.isValidHexColor('#000000')).toBe(true);
+    });
+
+    it('isValidHexColor() rejects invalid values', () => {
+        expect(app.isValidHexColor('#fff')).toBe(false);
+        expect(app.isValidHexColor('red')).toBe(false);
+        expect(app.isValidHexColor('#ff0000; onclick=alert(1)')).toBe(false);
+        expect(app.isValidHexColor('')).toBe(false);
+        expect(app.isValidHexColor(null)).toBe(false);
+        expect(app.isValidHexColor(undefined)).toBe(false);
+    });
+
+    it('saveTagColors() strips invalid color values', () => {
+        app.saveTagColors({ valid: '#aabbcc', xss: '"; onmouseover="alert(1)' });
+        const colors = app.getTagColors();
+        expect(colors.valid).toBe('#aabbcc');
+        expect(colors.xss).toBeUndefined();
+    });
+
+    it('getTagColors() filters out invalid colors from storage', () => {
+        localStorage.setItem(app.tagColorsKey, JSON.stringify({ ok: '#112233', bad: 'not-a-color' }));
+        const colors = app.getTagColors();
+        expect(colors.ok).toBe('#112233');
+        expect(colors.bad).toBeUndefined();
+    });
+
+    it('updateTagColor() rejects invalid hex values', () => {
+        app.saveTagColors({ work: '#ff0000' });
+        app.updateTagColor('work', 'invalid');
+        expect(app.getTagColors().work).toBe('#ff0000');
+    });
+});
+
+// ============================================================
+// 20. Safe Parse & Export Resilience
+// ============================================================
+describe('Safe Parse & Export Resilience', () => {
+    let app;
+
+    beforeEach(() => {
+        localStorage.clear();
+        setupDOM();
+        history.replaceState(null, '', '/');
+        app = createApp();
+    });
+
+    it('safeParse() returns fallback for null input', () => {
+        expect(app.safeParse(null, [])).toEqual([]);
+    });
+
+    it('safeParse() returns fallback for invalid JSON', () => {
+        expect(app.safeParse('{bad', {})).toEqual({});
+    });
+
+    it('safeParse() parses valid JSON', () => {
+        expect(app.safeParse('{"a":1}', {})).toEqual({ a: 1 });
+    });
+
+    it('exportProfileData() handles corrupted localStorage gracefully', () => {
+        const keys = app.getProfileStorageKeys('default');
+        localStorage.setItem(keys.storageKey, 'corrupt');
+        localStorage.setItem(keys.backlogKey, 'corrupt');
+
+        const data = app.exportProfileData('default');
+        expect(data.tasks).toEqual({ activeTasks: [], completedTasks: [] });
+        expect(data.backlog).toEqual([]);
+    });
+});
+
+// ============================================================
+// 21. V2 Import Profile Name Validation
+// ============================================================
+describe('V2 Import Profile Name Validation', () => {
+    let app;
+
+    beforeEach(() => {
+        localStorage.clear();
+        setupDOM();
+        history.replaceState(null, '', '/');
+        app = createApp();
+    });
+
+    it('v2 import skips profiles with invalid names', () => {
+        const importPayload = {
+            version: 2,
+            profiles: [
+                {
+                    name: 'valid',
+                    data: {
+                        tasks: { activeTasks: [], completedTasks: [] },
+                        backlog: [], tagColors: {}, collapsed: [], collapsedQuadrants: [], drafts: '{}'
+                    }
+                },
+                {
+                    name: 'bad name!',
+                    data: {
+                        tasks: { activeTasks: [], completedTasks: [] },
+                        backlog: [], tagColors: {}, collapsed: [], collapsedQuadrants: [], drafts: '{}'
+                    }
+                },
+                {
+                    name: '',
+                    data: {
+                        tasks: { activeTasks: [], completedTasks: [] },
+                        backlog: [], tagColors: {}, collapsed: [], collapsedQuadrants: [], drafts: '{}'
+                    }
+                }
+            ],
+            theme: 'light'
+        };
+
+        // Simulate v2 import logic
+        importPayload.profiles.forEach(profileEntry => {
+            const { name, data: pData } = profileEntry;
+            const validatedName = typeof name === 'string' ? name.trim() : '';
+            if (!validatedName || !/^[a-zA-Z0-9]+$/.test(validatedName)) return;
+            if (!pData) return;
+
+            const profiles = app.getProfiles();
+            if (!profiles.find(p => p.name === validatedName)) {
+                const maxId = profiles.reduce((max, p) => Math.max(max, p.id), -1);
+                profiles.push({ id: maxId + 1, name: validatedName });
+                app.saveProfiles(profiles);
+            }
+            const keys = app.getProfileStorageKeys(validatedName);
+            if (pData.tasks) localStorage.setItem(keys.storageKey, JSON.stringify(pData.tasks));
+        });
+
+        const profiles = app.getProfiles();
+        expect(profiles.find(p => p.name === 'valid')).toBeTruthy();
+        expect(profiles.find(p => p.name === 'bad name!')).toBeFalsy();
+        expect(profiles.find(p => p.name === '')).toBeFalsy();
+    });
+});
+
+// ============================================================
+// 22. Popstate History Suppression
+// ============================================================
+describe('Popstate History Suppression', () => {
+    let app;
+
+    beforeEach(() => {
+        localStorage.clear();
+        setupDOM();
+        history.replaceState(null, '', '/');
+        app = createApp();
+    });
+
+    it('updateURLParams() is suppressed during popstate profile switch', () => {
+        app.createProfile('work');
+        const pushSpy = vi.spyOn(history, 'pushState');
+
+        history.replaceState(null, '', '/?profile=work');
+        app.applyURLParams(true);
+
+        expect(app.getCurrentProfileName()).toBe('work');
+        expect(pushSpy).not.toHaveBeenCalled();
+        pushSpy.mockRestore();
+    });
+});

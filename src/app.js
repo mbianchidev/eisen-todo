@@ -600,16 +600,31 @@ class EisenMatrixController {
         return luminance > WCAG_LUMINANCE_THRESHOLD ? '#000000' : '#FFFFFF';
     }
 
+    isValidHexColor(color) {
+        return typeof color === 'string' && /^#[0-9a-fA-F]{6}$/.test(color);
+    }
+
     getTagColors() {
         const raw = localStorage.getItem(this.tagColorsKey);
         if (!raw) return {};
         try {
-            return JSON.parse(raw);
+            const parsed = JSON.parse(raw);
+            // Filter out invalid color values to prevent XSS
+            const safe = {};
+            for (const [key, val] of Object.entries(parsed)) {
+                if (this.isValidHexColor(val)) safe[key] = val;
+            }
+            return safe;
         } catch { return {}; }
     }
 
     saveTagColors(colors) {
-        localStorage.setItem(this.tagColorsKey, JSON.stringify(colors));
+        // Only persist valid hex colors
+        const safe = {};
+        for (const [key, val] of Object.entries(colors)) {
+            if (this.isValidHexColor(val)) safe[key] = val;
+        }
+        localStorage.setItem(this.tagColorsKey, JSON.stringify(safe));
     }
 
     ensureTagColors(labels) {
@@ -626,6 +641,7 @@ class EisenMatrixController {
     }
 
     updateTagColor(tagName, newColor) {
+        if (!this.isValidHexColor(newColor)) return;
         const colors = this.getTagColors();
         colors[tagName] = newColor;
         this.saveTagColors(colors);
@@ -1570,6 +1586,15 @@ class EisenMatrixController {
         this.updateURLParams();
     }
 
+    safeParse(raw, fallback) {
+        if (!raw) return fallback;
+        try {
+            return JSON.parse(raw);
+        } catch {
+            return fallback;
+        }
+    }
+
     exportProfileData(profileName) {
         const keys = this.getProfileStorageKeys(profileName);
         const rawTasks = localStorage.getItem(keys.storageKey);
@@ -1580,11 +1605,11 @@ class EisenMatrixController {
         const rawDrafts = localStorage.getItem(keys.draftsKey);
 
         return {
-            tasks: rawTasks ? JSON.parse(rawTasks) : { activeTasks: [], completedTasks: [] },
-            backlog: rawBacklog ? JSON.parse(rawBacklog) : [],
-            tagColors: rawTagColors ? JSON.parse(rawTagColors) : {},
-            collapsed: rawCollapsed ? JSON.parse(rawCollapsed) : [],
-            collapsedQuadrants: rawCollapsedQuadrants ? JSON.parse(rawCollapsedQuadrants) : [],
+            tasks: this.safeParse(rawTasks, { activeTasks: [], completedTasks: [] }),
+            backlog: this.safeParse(rawBacklog, []),
+            tagColors: this.safeParse(rawTagColors, {}),
+            collapsed: this.safeParse(rawCollapsed, []),
+            collapsedQuadrants: this.safeParse(rawCollapsedQuadrants, []),
             drafts: rawDrafts || '{}'
         };
     }
@@ -1648,14 +1673,20 @@ class EisenMatrixController {
                     // Multi-profile import
                     data.profiles.forEach(profileEntry => {
                         const { name, data: pData } = profileEntry;
+
+                        // Validate profile name (same constraints as createProfile)
+                        const validatedName = typeof name === 'string' ? name.trim() : '';
+                        if (!validatedName || !/^[a-zA-Z0-9]+$/.test(validatedName)) return;
+                        if (!pData) return;
+
                         // Ensure profile exists
                         const profiles = this.getProfiles();
-                        if (!profiles.find(p => p.name === name)) {
+                        if (!profiles.find(p => p.name === validatedName)) {
                             const maxId = profiles.reduce((max, p) => Math.max(max, p.id), -1);
-                            profiles.push({ id: maxId + 1, name });
+                            profiles.push({ id: maxId + 1, name: validatedName });
                             this.saveProfiles(profiles);
                         }
-                        const keys = this.getProfileStorageKeys(name);
+                        const keys = this.getProfileStorageKeys(validatedName);
                         if (pData.tasks) localStorage.setItem(keys.storageKey, JSON.stringify(pData.tasks));
                         if (pData.backlog) localStorage.setItem(keys.backlogKey, JSON.stringify(pData.backlog));
                         if (pData.tagColors) localStorage.setItem(keys.tagColorsKey, JSON.stringify(pData.tagColors));
@@ -2314,6 +2345,8 @@ class EisenMatrixController {
     }
 
     updateURLParams() {
+        if (this._suppressHistoryUpdate) return;
+
         const params = new URLSearchParams();
 
         // Profile param first (only for non-default)
@@ -2350,7 +2383,17 @@ class EisenMatrixController {
         if (urlProfile !== this.currentProfileName && /^[a-zA-Z0-9]+$/.test(urlProfile)) {
             const profiles = this.getProfiles();
             if (profiles.find(p => p.name === urlProfile)) {
-                this.switchProfile(urlProfile);
+                if (isPopstate) {
+                    // Suppress history updates to avoid pushState during popstate
+                    this._suppressHistoryUpdate = true;
+                    try {
+                        this.switchProfile(urlProfile);
+                    } finally {
+                        this._suppressHistoryUpdate = false;
+                    }
+                } else {
+                    this.switchProfile(urlProfile);
+                }
                 return;
             }
         }
@@ -2392,6 +2435,9 @@ class EisenMatrixController {
             this.elements.profileView.classList.remove('hidden');
             document.getElementById('filterStrip').classList.add('hidden');
             this.updateThemeSelectorUI();
+            this.renderProfileSettings();
+            this.renderTagColorSettings();
+            this.renderExportDropdown();
         } else {
             this.elements.mainMatrix.classList.remove('hidden');
             document.getElementById('filterStrip').classList.remove('hidden');
@@ -2801,15 +2847,16 @@ class EisenMatrixController {
     }
 }
 
-// Initialize application when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        new EisenMatrixController();
-    });
-} else {
-    new EisenMatrixController();
-}
-
+// Skip auto-instantiation when loaded as a CommonJS module (e.g. in tests)
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { EisenMatrixController };
+} else {
+    // Initialize application when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            new EisenMatrixController();
+        });
+    } else {
+        new EisenMatrixController();
+    }
 }
