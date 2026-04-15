@@ -1523,7 +1523,7 @@ describe('Drag-and-drop to quadrants', () => {
 
         // Simulate drop on the quadrant section element directly (e.g. header or quick-add-bar)
         const eliminateSection = document.querySelector('.quadrant[data-quadrant="not-urgent-not-important"]');
-        const dropEvent = new Event('drop', { bubbles: false, cancelable: true });
+        const dropEvent = new Event('drop', { bubbles: true, cancelable: true });
         Object.defineProperty(dropEvent, 'dataTransfer', {
             value: { getData: () => 't2', dropEffect: 'none' }
         });
@@ -1590,7 +1590,7 @@ describe('Drag-and-drop to quadrants', () => {
 
         // Drop on section (not task-zone) should append at end
         const eliminateSection = document.querySelector('.quadrant[data-quadrant="not-urgent-not-important"]');
-        const dropEvent = new Event('drop', { bubbles: false, cancelable: true });
+        const dropEvent = new Event('drop', { bubbles: true, cancelable: true });
         Object.defineProperty(dropEvent, 'dataTransfer', {
             value: { getData: () => 'mover', dropEffect: 'none' }
         });
