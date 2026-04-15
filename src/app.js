@@ -2527,6 +2527,12 @@ class EisenMatrixController {
                     this.removeTaskPermanently(taskId);
                 });
 
+                // Edit / Move button (opens full edit modal with quadrant selector)
+                card.querySelector('.btn-edit')?.addEventListener('click', (evt) => {
+                    evt.stopPropagation();
+                    this.openTaskEditModal(taskId);
+                });
+
                 // Advance and revert buttons
                 card.querySelector('.btn-advance')?.addEventListener('click', (evt) => {
                     evt.stopPropagation();
@@ -2646,6 +2652,7 @@ class EisenMatrixController {
                         ${collapsedSummary}
                     </div>
                     <div class="task-actions">
+                        <button class="task-action-btn btn-edit" title="Edit / Move">✎</button>
                         <button class="task-action-btn btn-delete" title="Delete">✕</button>
                     </div>
                 </div>

@@ -645,6 +645,10 @@ body {
     color: var(--accent-hot);
 }
 
+.task-action-btn.btn-edit:hover {
+    color: var(--accent-electric);
+}
+
 .task-text {
     font-size: 1rem;
     line-height: 1.5;

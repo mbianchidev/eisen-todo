@@ -1474,3 +1474,124 @@ describe('Popstate History Suppression', () => {
         pushSpy.mockRestore();
     });
 });
+
+// ============================================================
+// 23. Moving Tasks to Eliminate Quadrant
+// ============================================================
+describe('Moving tasks to Eliminate quadrant', () => {
+    let app;
+
+    beforeEach(() => {
+        localStorage.clear();
+        setupDOM();
+        history.replaceState(null, '', '/');
+        app = createApp();
+    });
+
+    it('moveTaskToPosition() moves a task to the Eliminate quadrant', () => {
+        const tasks = {
+            activeTasks: [
+                { id: 't1', content: 'Move me', quadrant: 'urgent-important', labels: [], urls: [], status: 'todo', createdAt: '2025-01-01T00:00:00.000Z' }
+            ],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+        app.renderApplicationState();
+
+        app.moveTaskToPosition('t1', 'not-urgent-not-important', 0);
+
+        const result = app.retrieveStoredData();
+        expect(result.activeTasks[0].quadrant).toBe('not-urgent-not-important');
+    });
+
+    it('task card renders in the Eliminate quadrant zone after being placed there', () => {
+        const tasks = {
+            activeTasks: [
+                { id: 't1', content: 'Eliminate task', quadrant: 'not-urgent-not-important', labels: [], urls: [], status: 'todo', createdAt: '2025-01-01T00:00:00.000Z' }
+            ],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+        app.renderApplicationState();
+
+        const zone = document.querySelector('.task-zone[data-zone="not-urgent-not-important"]');
+        const cards = zone.querySelectorAll('.task-card');
+        expect(cards.length).toBe(1);
+        expect(cards[0].dataset.taskId).toBe('t1');
+    });
+
+    it('moveBacklogTaskToQuadrant() moves a backlog task to the Eliminate quadrant', () => {
+        const backlog = [
+            { id: 'b1', content: 'Backlog item', labels: ['test'], urls: [], createdAt: '2025-01-01T00:00:00.000Z' }
+        ];
+        app.persistBacklogData(backlog);
+
+        app.moveBacklogTaskToQuadrant('b1', 'not-urgent-not-important');
+
+        expect(app.retrieveBacklogData()).toHaveLength(0);
+        const tasks = app.retrieveStoredData();
+        expect(tasks.activeTasks).toHaveLength(1);
+        expect(tasks.activeTasks[0].quadrant).toBe('not-urgent-not-important');
+        expect(tasks.activeTasks[0].status).toBe('todo');
+    });
+
+    it('openTaskEditModal() opens the modal with quadrant selector for moving tasks', () => {
+        const tasks = {
+            activeTasks: [
+                { id: 't1', content: 'Edit me', quadrant: 'urgent-important', labels: ['work'], urls: ['https://example.com'], status: 'todo', createdAt: '2025-01-01T00:00:00.000Z' }
+            ],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+        app.renderApplicationState();
+
+        app.openTaskEditModal('t1');
+
+        // Modal should be visible
+        expect(app.elements.modalOverlay.classList.contains('hidden')).toBe(false);
+        // Quadrant select should be visible
+        expect(app.elements.quadrantSelectGroup.classList.contains('hidden')).toBe(false);
+        // Select should have the current quadrant value
+        expect(app.elements.taskQuadrantSelect.value).toBe('urgent-important');
+        // Task content should be populated
+        expect(app.elements.taskTextInput.value).toBe('Edit me');
+    });
+
+    it('changing quadrant via edit modal moves task to Eliminate quadrant', () => {
+        const tasks = {
+            activeTasks: [
+                { id: 't1', content: 'Move to eliminate', quadrant: 'urgent-important', labels: [], urls: [], status: 'todo', createdAt: '2025-01-01T00:00:00.000Z' }
+            ],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+        app.renderApplicationState();
+
+        // Open edit modal and change quadrant
+        app.openTaskEditModal('t1');
+        app.elements.taskQuadrantSelect.value = 'not-urgent-not-important';
+
+        // Submit the form
+        const submitEvent = new Event('submit', { cancelable: true });
+        document.getElementById('taskForm').dispatchEvent(submitEvent);
+
+        const result = app.retrieveStoredData();
+        expect(result.activeTasks[0].quadrant).toBe('not-urgent-not-important');
+    });
+
+    it('task card in Eliminate quadrant has an edit button', () => {
+        const tasks = {
+            activeTasks: [
+                { id: 't1', content: 'Has edit btn', quadrant: 'not-urgent-not-important', labels: [], urls: [], status: 'todo', createdAt: '2025-01-01T00:00:00.000Z' }
+            ],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+        app.renderApplicationState();
+
+        const zone = document.querySelector('.task-zone[data-zone="not-urgent-not-important"]');
+        const card = zone.querySelector('.task-card');
+        const editBtn = card.querySelector('.btn-edit');
+        expect(editBtn).toBeTruthy();
+    });
+});
