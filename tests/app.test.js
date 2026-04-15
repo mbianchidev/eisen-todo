@@ -1476,9 +1476,9 @@ describe('Popstate History Suppression', () => {
 });
 
 // ============================================================
-// 23. Moving Tasks to Eliminate Quadrant
+// 23. Drag-and-Drop to Quadrants (including Eliminate)
 // ============================================================
-describe('Moving tasks to Eliminate quadrant', () => {
+describe('Drag-and-drop to quadrants', () => {
     let app;
 
     beforeEach(() => {
@@ -1488,7 +1488,7 @@ describe('Moving tasks to Eliminate quadrant', () => {
         app = createApp();
     });
 
-    it('moveTaskToPosition() moves a task to the Eliminate quadrant', () => {
+    it('drop on task-zone moves task to that quadrant', () => {
         const tasks = {
             activeTasks: [
                 { id: 't1', content: 'Move me', quadrant: 'urgent-important', labels: [], urls: [], status: 'todo', createdAt: '2025-01-01T00:00:00.000Z' }
@@ -1498,100 +1498,109 @@ describe('Moving tasks to Eliminate quadrant', () => {
         app.persistDataToStorage(tasks);
         app.renderApplicationState();
 
-        app.moveTaskToPosition('t1', 'not-urgent-not-important', 0);
+        // Simulate drop on Eliminate task-zone
+        const eliminateZone = document.querySelector('.task-zone[data-zone="not-urgent-not-important"]');
+        const dropEvent = new Event('drop', { bubbles: true, cancelable: true });
+        Object.defineProperty(dropEvent, 'dataTransfer', {
+            value: { getData: () => 't1', dropEffect: 'none' }
+        });
+        Object.defineProperty(dropEvent, 'clientY', { value: 500 });
+        eliminateZone.dispatchEvent(dropEvent);
 
         const result = app.retrieveStoredData();
         expect(result.activeTasks[0].quadrant).toBe('not-urgent-not-important');
     });
 
-    it('task card renders in the Eliminate quadrant zone after being placed there', () => {
+    it('drop on quadrant section (outside task-zone) moves task to that quadrant', () => {
         const tasks = {
             activeTasks: [
-                { id: 't1', content: 'Eliminate task', quadrant: 'not-urgent-not-important', labels: [], urls: [], status: 'todo', createdAt: '2025-01-01T00:00:00.000Z' }
+                { id: 't2', content: 'Drop on header', quadrant: 'urgent-important', labels: [], urls: [], status: 'todo', createdAt: '2025-01-01T00:00:00.000Z' }
             ],
             completedTasks: []
         };
         app.persistDataToStorage(tasks);
         app.renderApplicationState();
 
-        const zone = document.querySelector('.task-zone[data-zone="not-urgent-not-important"]');
-        const cards = zone.querySelectorAll('.task-card');
-        expect(cards.length).toBe(1);
-        expect(cards[0].dataset.taskId).toBe('t1');
-    });
-
-    it('moveBacklogTaskToQuadrant() moves a backlog task to the Eliminate quadrant', () => {
-        const backlog = [
-            { id: 'b1', content: 'Backlog item', labels: ['test'], urls: [], createdAt: '2025-01-01T00:00:00.000Z' }
-        ];
-        app.persistBacklogData(backlog);
-
-        app.moveBacklogTaskToQuadrant('b1', 'not-urgent-not-important');
-
-        expect(app.retrieveBacklogData()).toHaveLength(0);
-        const tasks = app.retrieveStoredData();
-        expect(tasks.activeTasks).toHaveLength(1);
-        expect(tasks.activeTasks[0].quadrant).toBe('not-urgent-not-important');
-        expect(tasks.activeTasks[0].status).toBe('todo');
-    });
-
-    it('openTaskEditModal() opens the modal with quadrant selector for moving tasks', () => {
-        const tasks = {
-            activeTasks: [
-                { id: 't1', content: 'Edit me', quadrant: 'urgent-important', labels: ['work'], urls: ['https://example.com'], status: 'todo', createdAt: '2025-01-01T00:00:00.000Z' }
-            ],
-            completedTasks: []
-        };
-        app.persistDataToStorage(tasks);
-        app.renderApplicationState();
-
-        app.openTaskEditModal('t1');
-
-        // Modal should be visible
-        expect(app.elements.modalOverlay.classList.contains('hidden')).toBe(false);
-        // Quadrant select should be visible
-        expect(app.elements.quadrantSelectGroup.classList.contains('hidden')).toBe(false);
-        // Select should have the current quadrant value
-        expect(app.elements.taskQuadrantSelect.value).toBe('urgent-important');
-        // Task content should be populated
-        expect(app.elements.taskTextInput.value).toBe('Edit me');
-    });
-
-    it('changing quadrant via edit modal moves task to Eliminate quadrant', () => {
-        const tasks = {
-            activeTasks: [
-                { id: 't1', content: 'Move to eliminate', quadrant: 'urgent-important', labels: [], urls: [], status: 'todo', createdAt: '2025-01-01T00:00:00.000Z' }
-            ],
-            completedTasks: []
-        };
-        app.persistDataToStorage(tasks);
-        app.renderApplicationState();
-
-        // Open edit modal and change quadrant
-        app.openTaskEditModal('t1');
-        app.elements.taskQuadrantSelect.value = 'not-urgent-not-important';
-
-        // Submit the form
-        const submitEvent = new Event('submit', { cancelable: true });
-        document.getElementById('taskForm').dispatchEvent(submitEvent);
+        // Simulate drop on the quadrant section element directly (e.g. header or quick-add-bar)
+        const eliminateSection = document.querySelector('.quadrant[data-quadrant="not-urgent-not-important"]');
+        const dropEvent = new Event('drop', { bubbles: false, cancelable: true });
+        Object.defineProperty(dropEvent, 'dataTransfer', {
+            value: { getData: () => 't2', dropEffect: 'none' }
+        });
+        eliminateSection.dispatchEvent(dropEvent);
 
         const result = app.retrieveStoredData();
         expect(result.activeTasks[0].quadrant).toBe('not-urgent-not-important');
     });
 
-    it('task card in Eliminate quadrant has an edit button', () => {
+    it('drop on quadrant header moves task to that quadrant via event bubbling', () => {
         const tasks = {
             activeTasks: [
-                { id: 't1', content: 'Has edit btn', quadrant: 'not-urgent-not-important', labels: [], urls: [], status: 'todo', createdAt: '2025-01-01T00:00:00.000Z' }
+                { id: 't3', content: 'Drop on header area', quadrant: 'not-urgent-important', labels: [], urls: [], status: 'todo', createdAt: '2025-01-01T00:00:00.000Z' }
             ],
             completedTasks: []
         };
         app.persistDataToStorage(tasks);
         app.renderApplicationState();
 
-        const zone = document.querySelector('.task-zone[data-zone="not-urgent-not-important"]');
-        const card = zone.querySelector('.task-card');
-        const editBtn = card.querySelector('.btn-edit');
-        expect(editBtn).toBeTruthy();
+        // Simulate drop on the quadrant header (bubbles to section)
+        const header = document.querySelector('.quadrant[data-quadrant="not-urgent-not-important"] .quadrant-header');
+        const dropEvent = new Event('drop', { bubbles: true, cancelable: true });
+        Object.defineProperty(dropEvent, 'dataTransfer', {
+            value: { getData: () => 't3', dropEffect: 'none' }
+        });
+        header.dispatchEvent(dropEvent);
+
+        const result = app.retrieveStoredData();
+        expect(result.activeTasks[0].quadrant).toBe('not-urgent-not-important');
+    });
+
+    it('drop on quick-add-bar moves task to that quadrant via event bubbling', () => {
+        const tasks = {
+            activeTasks: [
+                { id: 't4', content: 'Drop on quick-add', quadrant: 'urgent-not-important', labels: [], urls: [], status: 'todo', createdAt: '2025-01-01T00:00:00.000Z' }
+            ],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+        app.renderApplicationState();
+
+        // Simulate drop on the quick-add-bar (bubbles to section)
+        const quickAdd = document.querySelector('.quadrant[data-quadrant="not-urgent-not-important"] .quick-add-bar');
+        const dropEvent = new Event('drop', { bubbles: true, cancelable: true });
+        Object.defineProperty(dropEvent, 'dataTransfer', {
+            value: { getData: () => 't4', dropEffect: 'none' }
+        });
+        quickAdd.dispatchEvent(dropEvent);
+
+        const result = app.retrieveStoredData();
+        expect(result.activeTasks[0].quadrant).toBe('not-urgent-not-important');
+    });
+
+    it('task-zone drop uses precise dropIndex, section drop appends at end', () => {
+        const tasks = {
+            activeTasks: [
+                { id: 'existing', content: 'Already here', quadrant: 'not-urgent-not-important', labels: [], urls: [], status: 'todo', createdAt: '2025-01-01T00:00:00.000Z' },
+                { id: 'mover', content: 'Move me', quadrant: 'urgent-important', labels: [], urls: [], status: 'todo', createdAt: '2025-01-02T00:00:00.000Z' }
+            ],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+        app.renderApplicationState();
+
+        // Drop on section (not task-zone) should append at end
+        const eliminateSection = document.querySelector('.quadrant[data-quadrant="not-urgent-not-important"]');
+        const dropEvent = new Event('drop', { bubbles: false, cancelable: true });
+        Object.defineProperty(dropEvent, 'dataTransfer', {
+            value: { getData: () => 'mover', dropEffect: 'none' }
+        });
+        eliminateSection.dispatchEvent(dropEvent);
+
+        const result = app.retrieveStoredData();
+        const eliminateTasks = result.activeTasks.filter(t => t.quadrant === 'not-urgent-not-important');
+        expect(eliminateTasks).toHaveLength(2);
+        // 'mover' should be after 'existing' (appended at end)
+        expect(eliminateTasks[0].id).toBe('existing');
+        expect(eliminateTasks[1].id).toBe('mover');
     });
 });

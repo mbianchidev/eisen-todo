@@ -277,6 +277,7 @@ class EisenMatrixController {
         document.querySelectorAll('.task-zone').forEach(zone => {
             zone.addEventListener('dragover', (evt) => {
                 evt.preventDefault();
+                evt.stopPropagation();
                 evt.dataTransfer.dropEffect = 'move';
                 this.showDropIndicator(zone, evt.clientY);
             });
@@ -289,6 +290,7 @@ class EisenMatrixController {
             });
             zone.addEventListener('drop', (evt) => {
                 evt.preventDefault();
+                evt.stopPropagation();
                 zone.classList.remove('drag-over');
                 const taskId = evt.dataTransfer.getData('text/plain');
                 const targetQuadrant = zone.dataset.zone;
@@ -297,6 +299,39 @@ class EisenMatrixController {
                     this.moveTaskToPosition(taskId, targetQuadrant, dropIndex);
                 }
                 this.removeDropIndicators(zone);
+            });
+        });
+
+        // Drag-and-drop on entire quadrant sections (header, quick-add-bar, etc.)
+        // This ensures drops anywhere in the quadrant work, not just on the task-zone
+        document.querySelectorAll('.quadrant[data-quadrant]').forEach(section => {
+            section.addEventListener('dragover', (evt) => {
+                evt.preventDefault();
+                evt.dataTransfer.dropEffect = 'move';
+                const zone = section.querySelector('.task-zone');
+                if (zone) zone.classList.add('drag-over');
+            });
+            section.addEventListener('dragleave', (evt) => {
+                if (!section.contains(evt.relatedTarget)) {
+                    const zone = section.querySelector('.task-zone');
+                    if (zone) {
+                        zone.classList.remove('drag-over');
+                        this.removeDropIndicators(zone);
+                    }
+                }
+            });
+            section.addEventListener('drop', (evt) => {
+                evt.preventDefault();
+                const zone = section.querySelector('.task-zone');
+                if (zone) {
+                    zone.classList.remove('drag-over');
+                    this.removeDropIndicators(zone);
+                }
+                const taskId = evt.dataTransfer.getData('text/plain');
+                const targetQuadrant = section.dataset.quadrant;
+                if (taskId && targetQuadrant) {
+                    this.moveTaskToPosition(taskId, targetQuadrant, Infinity);
+                }
             });
         });
 
@@ -2527,12 +2562,6 @@ class EisenMatrixController {
                     this.removeTaskPermanently(taskId);
                 });
 
-                // Edit / Move button (opens full edit modal with quadrant selector)
-                card.querySelector('.btn-edit')?.addEventListener('click', (evt) => {
-                    evt.stopPropagation();
-                    this.openTaskEditModal(taskId);
-                });
-
                 // Advance and revert buttons
                 card.querySelector('.btn-advance')?.addEventListener('click', (evt) => {
                     evt.stopPropagation();
@@ -2652,7 +2681,6 @@ class EisenMatrixController {
                         ${collapsedSummary}
                     </div>
                     <div class="task-actions">
-                        <button class="task-action-btn btn-edit" title="Edit / Move">✎</button>
                         <button class="task-action-btn btn-delete" title="Delete">✕</button>
                     </div>
                 </div>
