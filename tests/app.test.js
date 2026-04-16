@@ -1474,3 +1474,154 @@ describe('Popstate History Suppression', () => {
         pushSpy.mockRestore();
     });
 });
+
+// ============================================================
+// 23. Drag-and-Drop to Quadrants (including Eliminate)
+// ============================================================
+describe('Drag-and-drop to quadrants', () => {
+    let app;
+
+    beforeEach(() => {
+        localStorage.clear();
+        setupDOM();
+        history.replaceState(null, '', '/');
+        app = createApp();
+    });
+
+    it('drop on task-zone moves task to that quadrant', () => {
+        const tasks = {
+            activeTasks: [
+                { id: 't1', content: 'Move me', quadrant: 'urgent-important', labels: [], urls: [], status: 'todo', createdAt: '2025-01-01T00:00:00.000Z' }
+            ],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+        app.renderApplicationState();
+
+        // Simulate drop on Eliminate task-zone
+        const eliminateZone = document.querySelector('.task-zone[data-zone="not-urgent-not-important"]');
+        const dropEvent = new Event('drop', { bubbles: true, cancelable: true });
+        Object.defineProperty(dropEvent, 'dataTransfer', {
+            value: { getData: () => 't1', dropEffect: 'none' }
+        });
+        Object.defineProperty(dropEvent, 'clientY', { value: 500 });
+        eliminateZone.dispatchEvent(dropEvent);
+
+        const result = app.retrieveStoredData();
+        expect(result.activeTasks[0].quadrant).toBe('not-urgent-not-important');
+    });
+
+    it('drop on quadrant section (outside task-zone) moves task to that quadrant', () => {
+        const tasks = {
+            activeTasks: [
+                { id: 't2', content: 'Drop on header', quadrant: 'urgent-important', labels: [], urls: [], status: 'todo', createdAt: '2025-01-01T00:00:00.000Z' }
+            ],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+        app.renderApplicationState();
+
+        // Simulate drop on the quadrant section element directly (e.g. header or quick-add-bar)
+        const eliminateSection = document.querySelector('.quadrant[data-quadrant="not-urgent-not-important"]');
+        const dropEvent = new Event('drop', { bubbles: true, cancelable: true });
+        Object.defineProperty(dropEvent, 'dataTransfer', {
+            value: { getData: () => 't2', dropEffect: 'none' }
+        });
+        eliminateSection.dispatchEvent(dropEvent);
+
+        const result = app.retrieveStoredData();
+        expect(result.activeTasks[0].quadrant).toBe('not-urgent-not-important');
+    });
+
+    it('drop on quadrant header moves task to that quadrant via event bubbling', () => {
+        const tasks = {
+            activeTasks: [
+                { id: 't3', content: 'Drop on header area', quadrant: 'not-urgent-important', labels: [], urls: [], status: 'todo', createdAt: '2025-01-01T00:00:00.000Z' }
+            ],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+        app.renderApplicationState();
+
+        // Simulate drop on the quadrant header (bubbles to section)
+        const header = document.querySelector('.quadrant[data-quadrant="not-urgent-not-important"] .quadrant-header');
+        const dropEvent = new Event('drop', { bubbles: true, cancelable: true });
+        Object.defineProperty(dropEvent, 'dataTransfer', {
+            value: { getData: () => 't3', dropEffect: 'none' }
+        });
+        header.dispatchEvent(dropEvent);
+
+        const result = app.retrieveStoredData();
+        expect(result.activeTasks[0].quadrant).toBe('not-urgent-not-important');
+    });
+
+    it('drop on quick-add-bar moves task to that quadrant via event bubbling', () => {
+        const tasks = {
+            activeTasks: [
+                { id: 't4', content: 'Drop on quick-add', quadrant: 'urgent-not-important', labels: [], urls: [], status: 'todo', createdAt: '2025-01-01T00:00:00.000Z' }
+            ],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+        app.renderApplicationState();
+
+        // Simulate drop on the quick-add-bar (bubbles to section)
+        const quickAdd = document.querySelector('.quadrant[data-quadrant="not-urgent-not-important"] .quick-add-bar');
+        const dropEvent = new Event('drop', { bubbles: true, cancelable: true });
+        Object.defineProperty(dropEvent, 'dataTransfer', {
+            value: { getData: () => 't4', dropEffect: 'none' }
+        });
+        quickAdd.dispatchEvent(dropEvent);
+
+        const result = app.retrieveStoredData();
+        expect(result.activeTasks[0].quadrant).toBe('not-urgent-not-important');
+    });
+
+    it('task-zone drop uses precise dropIndex, section drop appends at end', () => {
+        const tasks = {
+            activeTasks: [
+                { id: 'existing', content: 'Already here', quadrant: 'not-urgent-not-important', labels: [], urls: [], status: 'todo', createdAt: '2025-01-01T00:00:00.000Z' },
+                { id: 'mover', content: 'Move me', quadrant: 'urgent-important', labels: [], urls: [], status: 'todo', createdAt: '2025-01-02T00:00:00.000Z' }
+            ],
+            completedTasks: []
+        };
+        app.persistDataToStorage(tasks);
+        app.renderApplicationState();
+
+        // Drop on section (not task-zone) should append at end
+        const eliminateSection = document.querySelector('.quadrant[data-quadrant="not-urgent-not-important"]');
+        const dropEvent = new Event('drop', { bubbles: true, cancelable: true });
+        Object.defineProperty(dropEvent, 'dataTransfer', {
+            value: { getData: () => 'mover', dropEffect: 'none' }
+        });
+        eliminateSection.dispatchEvent(dropEvent);
+
+        const result = app.retrieveStoredData();
+        const eliminateTasks = result.activeTasks.filter(t => t.quadrant === 'not-urgent-not-important');
+        expect(eliminateTasks).toHaveLength(2);
+        // 'mover' should be after 'existing' (appended at end)
+        expect(eliminateTasks[0].id).toBe('existing');
+        expect(eliminateTasks[1].id).toBe('mover');
+
+        // Reset state and verify task-zone drop uses precise dropIndex
+        // In jsdom, getBoundingClientRect() returns all zeros, so midY=0.
+        // clientY=-1 → clientY < midY (-1 < 0) is true for the first card → dropIndex=0 (insert before 'existing')
+        app.persistDataToStorage(tasks);
+        app.renderApplicationState();
+
+        const eliminateZone = document.querySelector('.task-zone[data-zone="not-urgent-not-important"]');
+        const taskZoneDropEvent = new Event('drop', { bubbles: true, cancelable: true });
+        Object.defineProperty(taskZoneDropEvent, 'dataTransfer', {
+            value: { getData: () => 'mover', dropEffect: 'none' }
+        });
+        Object.defineProperty(taskZoneDropEvent, 'clientY', { value: -1 });
+        eliminateZone.dispatchEvent(taskZoneDropEvent);
+
+        const result2 = app.retrieveStoredData();
+        const eliminateTasks2 = result2.activeTasks.filter(t => t.quadrant === 'not-urgent-not-important');
+        expect(eliminateTasks2).toHaveLength(2);
+        // dropIndex=0 → 'mover' inserted before 'existing' (not appended at end)
+        expect(eliminateTasks2[0].id).toBe('mover');
+        expect(eliminateTasks2[1].id).toBe('existing');
+    });
+});
