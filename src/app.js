@@ -306,6 +306,7 @@ class EisenMatrixController {
         // This ensures drops anywhere in the quadrant work, not just on the task-zone
         document.querySelectorAll('.quadrant[data-quadrant]').forEach(section => {
             section.addEventListener('dragover', (evt) => {
+                if (!this.draggedTaskId) return;
                 evt.preventDefault();
                 evt.dataTransfer.dropEffect = 'move';
                 const zone = section.querySelector('.task-zone');
@@ -321,17 +322,16 @@ class EisenMatrixController {
                 }
             });
             section.addEventListener('drop', (evt) => {
+                const taskId = evt.dataTransfer.getData('text/plain');
+                const targetQuadrant = section.dataset.quadrant;
+                if (!taskId || !targetQuadrant) return;
                 evt.preventDefault();
                 const zone = section.querySelector('.task-zone');
                 if (zone) {
                     zone.classList.remove('drag-over');
                     this.removeDropIndicators(zone);
                 }
-                const taskId = evt.dataTransfer.getData('text/plain');
-                const targetQuadrant = section.dataset.quadrant;
-                if (taskId && targetQuadrant) {
-                    this.moveTaskToPosition(taskId, targetQuadrant, Infinity);
-                }
+                this.moveTaskToPosition(taskId, targetQuadrant, Infinity);
             });
         });
 

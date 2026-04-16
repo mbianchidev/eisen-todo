@@ -1602,5 +1602,26 @@ describe('Drag-and-drop to quadrants', () => {
         // 'mover' should be after 'existing' (appended at end)
         expect(eliminateTasks[0].id).toBe('existing');
         expect(eliminateTasks[1].id).toBe('mover');
+
+        // Reset state and verify task-zone drop uses precise dropIndex
+        // In jsdom, getBoundingClientRect() returns all zeros, so midY=0.
+        // clientY=-1 → clientY < midY (-1 < 0) is true for the first card → dropIndex=0 (insert before 'existing')
+        app.persistDataToStorage(tasks);
+        app.renderApplicationState();
+
+        const eliminateZone = document.querySelector('.task-zone[data-zone="not-urgent-not-important"]');
+        const taskZoneDropEvent = new Event('drop', { bubbles: true, cancelable: true });
+        Object.defineProperty(taskZoneDropEvent, 'dataTransfer', {
+            value: { getData: () => 'mover', dropEffect: 'none' }
+        });
+        Object.defineProperty(taskZoneDropEvent, 'clientY', { value: -1 });
+        eliminateZone.dispatchEvent(taskZoneDropEvent);
+
+        const result2 = app.retrieveStoredData();
+        const eliminateTasks2 = result2.activeTasks.filter(t => t.quadrant === 'not-urgent-not-important');
+        expect(eliminateTasks2).toHaveLength(2);
+        // dropIndex=0 → 'mover' inserted before 'existing' (not appended at end)
+        expect(eliminateTasks2[0].id).toBe('mover');
+        expect(eliminateTasks2[1].id).toBe('existing');
     });
 });
