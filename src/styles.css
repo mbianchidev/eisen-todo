@@ -480,6 +480,34 @@ body {
     color: var(--primary-bg);
 }
 
+.quadrant.quadrant-collapsed {
+    min-height: auto;
+    opacity: 0.6;
+    align-self: start;
+}
+
+.quadrant.quadrant-collapsed:hover {
+    opacity: 0.85;
+}
+
+.quadrant.quadrant-collapsed .quadrant-header {
+    padding: 0.75rem 1.5rem;
+    border-bottom: none;
+}
+
+.quadrant.quadrant-collapsed .quadrant-icon {
+    display: none;
+}
+
+.quadrant.quadrant-collapsed .quadrant-subtitle {
+    display: none;
+}
+
+.quadrant.quadrant-collapsed .quadrant-header h2 {
+    font-size: 1.1rem;
+    margin-bottom: 0;
+}
+
 .quadrant.quadrant-collapsed .task-zone,
 .quadrant.quadrant-collapsed .quick-add-bar {
     display: none;
