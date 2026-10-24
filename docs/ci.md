@@ -31,7 +31,19 @@ extend the workflow's path filters to include those inputs.
 
 ## Local validation
 
-With Node.js 26, npm, and actionlint installed:
+The development runtime is Node.js 26.12.1, pinned in `.nvmrc`. With
+[nvm](https://github.com/nvm-sh/nvm) installed, select it from the repository root:
+
+```sh
+nvm install
+nvm use
+```
+
+Alternatively, install the version listed in `.nvmrc` with your preferred Node.js
+version manager. This selects the development runtime, not a minimum supported
+Node.js version. The browser app and Pages deployment remain static.
+
+With that Node.js version, npm, and actionlint installed:
 
 ```sh
 npm ci
