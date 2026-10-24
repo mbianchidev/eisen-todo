@@ -43,21 +43,22 @@ Stop trying to figure out what the fuck you need to do. Own your time.
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/eisen-todo.git
+git clone https://github.com/mbianchidev/eisen-todo.git
 cd eisen-todo
 ```
 
-2. Open `index.html` in your browser, or serve with any web server:
+2. Select the [Node.js version pinned in `.nvmrc`](docs/ci.md#local-validation), then install the local tools and start the server:
 ```bash
-npm start 
-
-or just open the HTML file in your broswer
+npm ci
+npm start
 ```
 
-3. Navigate to `http://localhost:8080` in your browser
+3. Open the URL printed by the server, normally `http://localhost:3000`.
 
 ### No Build Required
-This is a vanilla JavaScript application with no dependencies or build steps!
+The app is vanilla JavaScript and needs no build step. Node.js is only used for
+the local static server and test tooling. You can also open `src/index.html`
+directly without installing dependencies.
 
 See [CI and deployment](docs/ci.md) for security checks, Pages triggers, and local validation.
 
