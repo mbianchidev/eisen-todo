@@ -59,6 +59,8 @@ or just open the HTML file in your broswer
 ### No Build Required
 This is a vanilla JavaScript application with no dependencies or build steps!
 
+See [CI and deployment](docs/ci.md) for security checks, Pages triggers, and local validation.
+
 ## 📖 Usage Guide
 
 ### Creating Tasks
