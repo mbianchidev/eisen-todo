@@ -18,5 +18,8 @@
   "devDependencies": {
     "jsdom": "^30.1.2",
     "vitest": "^5.0.4"
+  },
+  "allowScripts": {
+    "fsevents@2.3.3": true
   }
 }

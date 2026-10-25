@@ -1,5 +1,18 @@
 # CI and deployment
 
+## Node.js tests
+
+The `Tests` workflow selects Node.js from `.nvmrc`, installs locked dependencies
+with `npm ci`, and runs all tests with at most two workers. It runs on pull
+requests targeting `main`, including drafts and subsequent commits, and pushes
+to `main` that change source, tests, npm settings, the runtime pin, the Vitest
+configuration, or the test workflow itself. Documentation-only changes skip
+this workflow.
+
+The workflow caches npm's download store, not `node_modules`. A newer run for
+the same pull request cancels its obsolete test run without canceling main
+pushes, CodeQL, or Pages deployments.
+
 ## Security analysis
 
 CodeQL analyzes JavaScript and GitHub Actions for pull requests targeting `main`,
@@ -31,10 +44,28 @@ extend the workflow's path filters to include those inputs.
 
 ## Local validation
 
-With Node.js 26, npm, and actionlint installed:
+The development and CI runtime is Node.js 26.12.1, pinned in `.nvmrc`. With
+[nvm](https://github.com/nvm-sh/nvm) installed, select it from the repository root:
+
+```sh
+nvm install
+nvm use
+```
+
+Alternatively, install the version listed in `.nvmrc` with your preferred Node.js
+version manager. This selects the development and CI runtime, not a minimum
+supported Node.js version. The browser app and Pages deployment remain static.
+
+`package.json` approves lifecycle scripts only for `fsevents@2.3.3`, the optional
+macOS file-watching dependency. After reviewing a future version, run
+`npm install-scripts approve fsevents` to update that version-specific approval.
+`vitest.config.mjs` makes the test configuration explicitly ESM without
+changing the application's module format.
+
+With that Node.js version, npm, and actionlint installed:
 
 ```sh
 npm ci
 npm test
-actionlint .github/workflows/codeql.yml .github/workflows/deploy-pages.yml
+actionlint .github/workflows/*.yml
 ```
