@@ -8,7 +8,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "serve": "^14.2.6"
+    "serve": "^14.2.7"
   },
   "overrides": {
     "minimatch": "3.1.5",
@@ -16,7 +16,7 @@
     "compression": "1.8.2"
   },
   "devDependencies": {
-    "jsdom": "^30.1.3",
+    "jsdom": "^31.0.0",
     "vitest": "^5.1.0"
   },
   "allowScripts": {
